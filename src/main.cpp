@@ -61,7 +61,7 @@ bool            flag          = true;                                     // Fla
 uint32_t        overflow      = 20000;                                    // Max Pulse Counter value
 int16_t         pulses        = 0;                                        // Pulse Counter value
 uint32_t        multPulses    = 0;                                        // Quantidade de overflows do contador PCNT
-uint32_t        sample_time   = 1000000;                                  // sample time of 1 second to count pulses
+uint32_t        sample_time   = 10000;                                  // sample time of 1 second to count pulses
 uint32_t        osc_freq      = 12543;                                    // Oscillator frequency - initial 12543 Hz (may be 1 Hz to 40 MHz)
 uint32_t        mDuty         = 0;                                        // Duty value
 uint32_t        resolution    = 0;                                        // Resolution value
@@ -74,29 +74,12 @@ esp_timer_handle_t timer_handle;                                          // Cre
 portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;                     // portMUX_TYPE to do synchronism
 
 //----------------------------------------------------------------------------------------
-void setup()
-{
-  Serial.begin(115200);                                                   // Serial Console Arduino 115200 Bps
-  Serial.println(" Input the Frequency - 1 to 40 MHz");                   // Console print
-
-#ifdef LCD_I2C_ON                                                         // If usinf I2C LCD
-  Wire.begin(I2C_SDA, I2C_SCL);                                           // Begin I2C Interface
-  lcd.setBacklight(255);                                                  // Set I2C LCD Backlight ON
-#endif
-
-#if defined LCD_ON || defined LCD_I2C_ON                                  // If using LCD or I2C LCD     
-  lcd.begin(16, 2);                                                       // LCD init 16 x2
-  lcd.print("  Frequency:");                                              // LCD print
-#endif
-
-  init_frequencyMeter ();                                                 // Initialize Frequency Meter
-}
 
 //----------------------------------------------------------------------------
 void init_osc_freq ()                                                     // Initialize Oscillator to test Freq Meter
 {
   resolution = (log (80000000 / osc_freq)  / log(2)) / 2 ;                // Calc of resolution of Oscillator
-  if (resolution < 1) resolution = 1;                                     // set min resolution 
+  if (resolution < 100) resolution = 100;                                     // set min resolution 
   // Serial.println(resolution);                                          // Print
   mDuty = (pow(2, resolution)) / 2;                                       // Calc of Duty Cycle 50% of the pulse
   // Serial.println(mDuty);                                               // Print
@@ -210,15 +193,34 @@ char *ltos(long val, char *s, int radix)                                  // For
   return s;
 }
 
+void setup()
+{
+  Serial.begin(115200);                                                   // Serial Console Arduino 115200 Bps
+  Serial.println(" Input the Frequency - 1 to 40 MHz");                   // Console print
+
+#ifdef LCD_I2C_ON                                                         // If usinf I2C LCD
+  Wire.begin(I2C_SDA, I2C_SCL);                                           // Begin I2C Interface
+  lcd.setBacklight(255);                                                  // Set I2C LCD Backlight ON
+#endif
+
+#if defined LCD_ON || defined LCD_I2C_ON                                  // If using LCD or I2C LCD     
+  lcd.begin(16, 2);                                                       // LCD init 16 x2
+  lcd.print("  Frequency:");                                              // LCD print
+#endif
+
+  init_frequencyMeter ();                                                 // Initialize Frequency Meter
+}
+
 //---------------------------------------------------------------------------------
 void loop()
 {
   if (flag == true)                                                     // If count has ended
   {
     flag = false;                                                       // change flag to disable print
-    frequency = (pulses + (multPulses * overflow)) / 2  ;               // Calculation of frequency
+    frequency = (pulses + (multPulses * overflow)) * 100 / 2  ;               // Calculation of frequency
     printf("Frequency : %s", (ltos(frequency, buf, 10)));               // Print frequency with commas
     printf(" Hz \n");                                                   // Print unity Hz
+    // Serial.println(frequency);
 
 #if defined LCD_ON || defined LCD_I2C_ON                                // If using LCD or I2C LCD  
     lcd.setCursor(2, 1);                                                // Set cursor position - column and row
