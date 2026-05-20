@@ -68,18 +68,23 @@ void Audio::setAudioBeacon()
         default:
             break;
     }
-    skip = ceil((res*fc)/MAX_DAC_FREQ);
-    Serial.print(skip);
-    Serial.print(res*fc);
-    lutSize = LUTSIZE/skip;
+    skip = ceil((res*fc)/(double)MAX_DAC_FREQ);
 
+    Serial.println(ceil((res*fc)/(double)MAX_DAC_FREQ));
+
+    lutSize = res/skip;
+
+    Serial.println(lutSize);
+    Serial.println(skip);
+    Serial.println(res*fc);
+    
     if (res*fc/(double)skip > MAX_DAC_FREQ) {
         return;
     }
     else {
-        timer_0 = skip/((double)res*(double)fc);
+        timer_0 = skip/((double)(res*fc));
     }
-    Serial.println(timer_0);
+    Serial.println(timer_0*1000000);
     timerAlarmWrite(Timer0_Cfg, (int)(timer_0*1000000), true);
 }
 
