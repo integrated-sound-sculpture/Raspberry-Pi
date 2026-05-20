@@ -71,6 +71,7 @@ void Audio::setAudioBeacon()
     skip = ceil((res*fc)/MAX_DAC_FREQ);
     Serial.print(skip);
     Serial.print(res*fc);
+    lutSize = LUTSIZE/skip;
 
     if (res*fc/(double)skip > MAX_DAC_FREQ) {
         return;
@@ -104,7 +105,7 @@ void IRAM_ATTR Timer0_ISR()
         default:
             dac_output_disable(DAC_CHANNEL_1);
     }
-    if(audio.SampleIdx == LUTSIZE) {
+    if(audio.SampleIdx == audio.lutSize) {
         audio.SampleIdx = 0;
     }
 }

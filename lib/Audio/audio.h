@@ -42,6 +42,7 @@ class Audio {
         int fr = 32;
         int res;
         int skip;
+        int lutSize;
         bool dacUse = false;
         CarrierWave carrierLUT = SINE;
 
