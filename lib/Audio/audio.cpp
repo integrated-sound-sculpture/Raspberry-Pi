@@ -69,6 +69,8 @@ void Audio::setAudioBeacon()
             break;
     }
     skip = ceil((res*fc)/MAX_DAC_FREQ);
+    Serial.print(skip);
+    Serial.print(res*fc);
 
     if (res*fc/(double)skip > MAX_DAC_FREQ) {
         return;
@@ -76,8 +78,8 @@ void Audio::setAudioBeacon()
     else {
         timer_0 = skip/((double)res*(double)fc);
     }
-
-    timerAlarmWrite(Timer0_Cfg, timer_0*1000000, true);
+    Serial.println(timer_0);
+    timerAlarmWrite(Timer0_Cfg, (int)(timer_0*1000000), true);
 }
 
 void Audio::enableAudioBeacon()

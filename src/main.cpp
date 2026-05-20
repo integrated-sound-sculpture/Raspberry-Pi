@@ -5,13 +5,14 @@
 
 void setup()
 {
-    init_frequencyMeter();
+    Serial.begin(115200);
+    // init_frequencyMeter();
     audio.setup();
     audio.enableAudioBeacon();
 }
 
 void loop()
 {
-    int freq = freq_measurement();
+    // int freq = freq_measurement();
 }
 

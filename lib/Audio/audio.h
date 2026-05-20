@@ -15,7 +15,7 @@ typedef enum CarrierWave{
 #define BLOCKSIZE 2
 #define SINESIZE 100
 #define CODESIZE 32
-#define MAX_DAC_FREQ 40000
+#define MAX_DAC_FREQ 20000
 
 const uint8_t blockLookupTable[] = {
     255, 0};
@@ -37,7 +37,7 @@ const uint8_t sineLookupTable[] = {
 
 class Audio {
     public:
-        int fc = 10000;
+        int fc = 100;
         int fb = 5000;
         int fr = 32;
         int res;
