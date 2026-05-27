@@ -1,0 +1,19 @@
+PIN LAYOUT OF ESP32 WROOM (http://wiki.fluidnc.com/en/hardware/esp32_pin_reference):
+
+    -> pulse_cnt (https://blog.eletrogate.com/esp32-frequencimetro-de-precisao/):
+            - pin 32 and 35 should be connected to each other
+            - pin 34 should be connected to frequency generator
+
+    -> sine_gen (https://www.techrm.com/guide-to-creating-a-simple-signal-generator-with-esp32/):
+            - pin 25: triangle wave
+            - pin 26: block wave or sine wave
+
+    -> UART connection:
+            - pin 17: transmit UART
+            - pin 16: receive UART
+
+    -> input control:
+            - pin 5: calibration_button
+            - pin 4: potentiometer
+
+    non usable pins: 0, 1, 3, 6, 7, 8, 9, 10, 11

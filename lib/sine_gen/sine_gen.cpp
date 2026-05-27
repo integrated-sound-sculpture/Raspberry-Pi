@@ -18,9 +18,10 @@ void generateTriangleWave(int freq);
 void init_gen_wave(int freq , int resolution, WaveType waveType){
   if(waveType != SINE_WAVE) {
     // Square wave configuration
-    ledcSetup(0, freq, resolution);
     ledcAttachPin(SQUARE_PIN, 0);
     ledcWrite(0, 128); // 50% duty cycle
+    ledcSetup(0, freq, resolution);
+
   }
 }
 
@@ -28,20 +29,31 @@ void gen_wave(int freq, int resolution, WaveType waveType) {
     switch (waveType) {
       case SINE_WAVE:
         //while(freq<=4000){
-          //freq +=1;
-        wave.tone(freq);
-        //Serial.println(freq);
+          //freq +=10;
+          wave.tone(freq);
+          //Serial.println(freq);
         //}
-       // while(freq>=0){
-          //freq -=1;
+       //while(freq>=80){
+          //freq -=10;
           //wave.tone(freq);
           //Serial.println(freq);
-       // }
+       //}
         break;
       case SQUARE_WAVE:
         
-        ledcSetup(0, freq, resolution);
+        //while(freq<=4000){
+          //freq +=1;
+          //ledcSetup(0, freq, resolution);
+          //Serial.println(freq);
+          //delayMicroseconds(2);
 
+        //}
+       //while(freq>=80){
+          //freq -=1;
+        //ledcSetup(0, freq, resolution);
+          //Serial.println(freq);
+          //delayMicroseconds(2);
+       //}
         break;
       case TRIANGLE_WAVE:
         generateTriangleWave(freq);
