@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <driver/dac.h>
 #include <bitset>
+#include <math.h>
 
 typedef enum CarrierWave{
     BLOCK,
@@ -37,14 +38,14 @@ const uint8_t sineLookupTable[] = {
 
 class Audio {
     public:
-        int fc = 1000;
+        int fc = 100;
         int fb = 5000;
         int fr = 32;
         int res;
         int skip;
         int lutSize;
         bool dacUse = false;
-        CarrierWave carrierLUT = SINE;
+        CarrierWave carrierLUT = BLOCK;
 
         uint8_t lookupTable[LUTSIZE];
 

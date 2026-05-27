@@ -70,13 +70,11 @@ void Audio::setAudioBeacon()
     }
     skip = ceil((res*fc)/(double)MAX_DAC_FREQ);
 
-    Serial.println(ceil((res*fc)/(double)MAX_DAC_FREQ));
+    // Serial.println(ceil((res*fc)/(double)MAX_DAC_FREQ));
 
     lutSize = res/skip;
 
-    Serial.println(lutSize);
-    Serial.println(skip);
-    Serial.println(res*fc);
+    Serial.println(fc);
     
     if (res*fc/(double)skip > MAX_DAC_FREQ) {
         return;
@@ -84,19 +82,22 @@ void Audio::setAudioBeacon()
     else {
         timer_0 = skip/((double)(res*fc));
     }
-    Serial.println(timer_0*1000000);
-    timerAlarmWrite(Timer0_Cfg, (int)(timer_0*1000000), true);
+
+    timerAlarmWrite(Timer0_Cfg, timer_0*1000000, true);
 }
 
 void Audio::enableAudioBeacon()
 {
     dacUse = true;
-    timerRestart(Timer0_Cfg);
+    dac_output_enable(DAC_CHANNEL_1);
+    timerStart(Timer0_Cfg);
 }
 
 void Audio::disableAudioBeacon()
 {
     dacUse = false;
+    dac_output_disable(DAC_CHANNEL_1);
+    timerStop(Timer0_Cfg);
 }
 // The Timer0 ISR Function (Executes Every Timer0 Interrupt Interval)
 void IRAM_ATTR Timer0_ISR()
@@ -107,11 +108,24 @@ void IRAM_ATTR Timer0_ISR()
             break;
         case SINE:
             dac_output_voltage(DAC_CHANNEL_1, sineLookupTable[(audio.SampleIdx++)*audio.skip]);
+            break;
         default:
             dac_output_disable(DAC_CHANNEL_1);
+            break;
     }
     if(audio.SampleIdx == audio.lutSize) {
         audio.SampleIdx = 0;
+    }
+}
+
+void IRAM_ATTR Timer1_ISR()
+{
+    if(audio.dacUse){
+        audio.fc++;
+        if(audio.fc > 4000){
+            audio.fc = 80;
+        }
+        audio.setAudioBeacon();
     }
 }
 
@@ -122,7 +136,13 @@ void Audio::setup()
     timerAttachInterrupt(Timer0_Cfg, &Timer0_ISR, true);
     timerAlarmWrite(Timer0_Cfg, 10000, true);
     timerAlarmEnable(Timer0_Cfg);
-    timerStart(Timer0_Cfg);
+    timerStop(Timer0_Cfg);
+
+    Timer1_Cfg = timerBegin(1, 80, true);
+    timerAttachInterrupt(Timer1_Cfg, &Timer1_ISR, true);
+    timerAlarmWrite(Timer1_Cfg, 10000, true);
+    timerAlarmEnable(Timer1_Cfg);
+    timerStart(Timer1_Cfg);
 
     Serial.println("Timers set up");
 
