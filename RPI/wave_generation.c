@@ -21,14 +21,16 @@
  * 
  */
 
+#include <atomic>
+
 #include <unistd.h>
 #include <thread>
 #include <chrono>
 
+#include <wiringSerial.h>
+
 #include <fcntl.h>			//Used for UART
 #include <termios.h>		//Used for UART
-
-#include <wiringSerial.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -48,11 +50,14 @@ typedef enum{
     TRIANGLE
 }FORM;
 
-typedef struct freq{
+typedef struct settings{
+    // std::atomic<float> f;
+    // std::atomic<FORM> wave;
+    // std::atomic<float> ampl;
     float f;
     FORM wave;
     float ampl;
-}freq;
+}settings;
 
 #define PORT        8080 
 #define MAXLINE     1024 
@@ -64,60 +69,118 @@ typedef struct freq{
 
 short buffer[BUFFER_SIZE];
 
-freq f1{
+settings f1{
     220.0f,
-    SINE,
+    WAVE_FORM,
     1.0f
 };
 
 int sock = socket(AF_INET, SOCK_DGRAM, 0);
 
 //-------------------------
-	//----- SETUP USART 0 -----
-	//-------------------------
-	//At bootup, pins 8 and 10 are already set to UART0_TXD, UART0_RXD (ie the alt0 function) respectively
-	int uart0_filestream = -1;
-	
-	//OPEN THE UART
-	//The flags (defined in fcntl.h):
-	//	Access modes (use 1 of these):
-	//		O_RDONLY - Open for reading only.
-	//		O_RDWR - Open for reading and writing.
-	//		O_WRONLY - Open for writing only.
-	//
-	//	O_NDELAY / O_NONBLOCK (same function) - Enables nonblocking mode. When set read requests on the file can return immediately with a failure status
-	//											if there is no input immediately available (instead of blocking). Likewise, write requests can also return
-	//											immediately with a failure status if the output can't be written immediately.
-	//
-	//	O_NOCTTY - When set and path identifies a terminal device, open() shall not cause the terminal device to become the controlling terminal for the process.
-	uart0_filestream = open("/dev/serial0", O_RDWR | O_NOCTTY | O_NDELAY);		//Open in non blocking read/write mode
-	if (uart0_filestream == -1)
-	{
-		//ERROR - CAN'T OPEN SERIAL PORT
-		printf("Error - Unable to open UART.  Ensure it is not in use by another application\n");
-	}
-	
-	//CONFIGURE THE UART
-	//The flags (defined in /usr/include/termios.h - see http://pubs.opengroup.org/onlinepubs/007908799/xsh/termios.h.html):
-	//	Baud rate:- B1200, B2400, B4800, B9600, B19200, B38400, B57600, B115200, B230400, B460800, B500000, B576000, B921600, B1000000, B1152000, B1500000, B2000000, B2500000, B3000000, B3500000, B4000000
-	//	CSIZE:- CS5, CS6, CS7, CS8
-	//	CLOCAL - Ignore modem status lines
-	//	CREAD - Enable receiver
-	//	IGNPAR = Ignore characters with parity errors
-	//	ICRNL - Map CR to NL on input (Use for ASCII comms where you want to auto correct end of line characters - don't use for bianry comms!)
-	//	PARENB - Parity enable
-	//	PARODD - Odd parity (else even)
-	struct termios options;
-	tcgetattr(uart0_filestream, &options);
+//----- SETUP USART 0 -----
+//-------------------------
+//At bootup, pins 8 and 10 are already set to UART0_TXD, UART0_RXD (ie the alt0 function) respectively
+int uart0_filestream = -1;
 
-void set_interface_attribs(int speed, int parity)
+struct termios options;
+
+
+void set_interface_attribs(void)
 {
+    //OPEN THE UART
+    //The flags (defined in fcntl.h):
+    //	Access modes (use 1 of these):
+    //		O_RDONLY - Open for reading only.
+    //		O_RDWR - Open for reading and writing.
+    //		O_WRONLY - Open for writing only.
+    //
+    //	O_NDELAY / O_NONBLOCK (same function) - Enables nonblocking mode. When set read requests on the file can return immediately with a failure status
+    //											if there is no input immediately available (instead of blocking). Likewise, write requests can also return
+    //											immediately with a failure status if the output can't be written immediately.
+    //
+    //	O_NOCTTY - When set and path identifies a terminal device, open() shall not cause the terminal device to become the controlling terminal for the process.
+    uart0_filestream = open("/dev/ttyS0", O_RDWR | O_NOCTTY);		//Open in non blocking read/write mode
+    if (uart0_filestream == -1)
+    {
+        //ERROR - CAN'T OPEN SERIAL PORT
+        printf("Error - Unable to open UART.  Ensure it is not in use by another application\n");
+    }
+
+    //CONFIGURE THE UART
+    //The flags (defined in /usr/include/termios.h - see http://pubs.opengroup.org/onlinepubs/007908799/xsh/termios.h.html):
+    //	Baud rate:- B1200, B2400, B4800, B9600, B19200, B38400, B57600, B115200, B230400, B460800, B500000, B576000, B921600, B1000000, B1152000, B1500000, B2000000, B2500000, B3000000, B3500000, B4000000
+    //	CSIZE:- CS5, CS6, CS7, CS8
+    //	CLOCAL - Ignore modem status lines
+    //	CREAD - Enable receiver
+    //	IGNPAR = Ignore characters with parity errors
+    //	ICRNL - Map CR to NL on input (Use for ASCII comms where you want to auto correct end of line characters - don't use for bianry comms!)
+    //	PARENB - Parity enable
+    //	PARODD - Odd parity (else even)
+    /*
+    tcgetattr(uart0_filestream, &options);
 	options.c_cflag = B115200 | CS8 | CLOCAL | CREAD;		//<Set baud rate
 	options.c_iflag = IGNPAR;
 	options.c_oflag = 0;
 	options.c_lflag = 0;
 	tcflush(uart0_filestream, TCIFLUSH);
 	tcsetattr(uart0_filestream, TCSANOW, &options);
+    */
+    tcgetattr(uart0_filestream, &options);
+
+    cfsetispeed(&options, B115200);
+    cfsetospeed(&options, B115200);
+
+    options.c_cflag |= (CLOCAL | CREAD);
+    options.c_cflag &= ~PARENB;
+    options.c_cflag &= ~CSTOPB;
+    options.c_cflag &= ~CSIZE;
+    options.c_cflag |= CS8;
+
+    options.c_lflag = 0;
+    options.c_oflag = 0;
+    options.c_iflag = 0;
+
+    options.c_cc[VMIN]  = 1;
+    options.c_cc[VTIME] = 1;
+
+    tcsetattr(uart0_filestream, TCSANOW, &options);
+}
+
+bool read_line(int fd, char* buffer, size_t maxlen)
+{
+    size_t idx = 0;
+
+    while (idx < maxlen - 1)
+    {
+        char c;
+
+        int n = read(fd, &c, 1);
+
+        if (n > 0)
+        {
+            // newline reached
+            if (c == '\n')
+            {
+                break;
+            }
+
+            // ignore carriage return
+            if (c != '\r')
+            {
+                buffer[idx++] = c;
+            }
+        }
+        else
+        {
+            // optional timeout/failure handling
+            usleep(1000);
+        }
+    }
+
+    buffer[idx] = '\0';
+
+    return idx > 0;
 }
 
 void parameter_aquisition(void)
@@ -127,8 +190,31 @@ void parameter_aquisition(void)
         if (uart0_filestream != -1)
         {
             // Read up to 255 characters from the port if they are there
-            unsigned char rx_buffer[256];
-            int rx_length = read(uart0_filestream, (void*)rx_buffer, 255);		//Filestream, buffer to store in, number of bytes to read (max)
+            // unsigned char rx_buffer[256];
+            
+            char line[128];
+
+            if(read_line(uart0_filestream, line, sizeof(line)))
+            {
+                float freq;
+                int ampl;
+                
+                printf("RX = [%s]\n", line);
+                printf("%d\n", sscanf(line, "%f,%d", &freq, &ampl) == 2);
+
+                if(sscanf(line, "%f,%d", &freq, &ampl) == 2)
+                {
+                    printf("Hello");
+                    f1.f = freq;
+                }
+            }
+/*
+            int rx_length = read(uart0_filestream, rx_buffer, sizeof(rx_buffer)-1);
+
+            if(rx_length > 0)
+            {
+                rx_buffer[rx_length] = '\0';
+            }
             if (rx_length < 0)
             {
                 //An error occured (will occur if there are no bytes)
@@ -143,17 +229,16 @@ void parameter_aquisition(void)
                 rx_buffer[rx_length] = '\0';
                 printf("%i bytes read : %s\n", rx_length, rx_buffer);
             }
+*/
         }
-        f1.f += 10.0;
-        if(f1.f >= 2000.0){
-            f1.f = 220.0;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        //std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 }
 
 int main(void)
 {
+    set_interface_attribs();
+    
     int err;
     snd_pcm_t *handle;
     
@@ -195,7 +280,7 @@ int main(void)
         // Fill the current block buffer
         for (int i = 0; i < BUFFER_SIZE; i++) {
             // Calculate the wave value using the current accumulated phase
-            switch (WAVE_FORM) {
+            switch (f1.wave) {
                 case SINE:
                     buffer[i] = (short)(sin(phase) * 25000.0);
                     break;
