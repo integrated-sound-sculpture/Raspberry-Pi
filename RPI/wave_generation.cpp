@@ -70,7 +70,7 @@ typedef struct settings{
 short buffer[BUFFER_SIZE];
 
 settings f1{
-    220.0f,
+    440.0f,
     WAVE_FORM,
     1.0f
 };
@@ -205,7 +205,7 @@ void parameter_aquisition(void)
                 if(sscanf(line, "%f,%d", &freq, &ampl) == 2)
                 {
                     printf("Hello");
-                    f1.f = freq;
+                    //f1.f = freq;
                 }
             }
 /*
@@ -282,7 +282,7 @@ int main(void)
             // Calculate the wave value using the current accumulated phase
             switch (f1.wave) {
                 case SINE:
-                    buffer[i] = (short)(sin(phase) * 25000.0);
+                    buffer[i] = (short)(sin(phase) * 30000.0);
                     break;
                 case BLOCK:
                     if (phase <= M_PI){
@@ -341,133 +341,3 @@ int main(void)
     printf("Done!\n");
     return 0;
 }
-
-/*
-#include <iostream>
-#include <cmath>
-#include <alsa/asoundlib.h>
-
-#include <stdio.h>
-#include <stdlib.h>
-
-// Allocate an array filled with arbitrary audio bytes
-unsigned char buffer[16 * 1024]; 
-
-int main(void) {
-    int err;
-    snd_pcm_t *handle;
-
-    // Fill buffer with random static noise
-    for (size_t i = 0; i < sizeof(buffer); i++) {
-        buffer[i] = rand() & 0xff;
-    }
-    
-
-    // 1. Open default sound card for playback pipeline
-    err = snd_pcm_open(&handle, "hw:1", SND_PCM_STREAM_PLAYBACK, 0);
-    if (err < 0) {
-        fprintf(stderr, "Playback open error: %s\n", snd_strerror(err));
-        return EXIT_FAILURE;
-    }
-
-    // 2. Set structural hardware configs: Unsigned 8-bit, Mono, 44.1kHz, 0.5s latency tolerance
-    err = snd_pcm_set_params(handle,
-                             SND_PCM_FORMAT_U8,
-                             SND_PCM_ACCESS_RW_INTERLEAVED,
-                             1,      // 1 Channel (Mono)
-                             44100,  // Sample Rate
-                             1,      // Allow ALSA software resampling
-                             500000); // 500,000 microseconds latency
-    if (err < 0) {
-        fprintf(stderr, "Hardware configuration error: %s\n", snd_strerror(err));
-        snd_pcm_close(handle);
-        return EXIT_FAILURE;
-    }
-
-    // 3. Send audio blocks to your hardware output frame loop
-    printf("Playing static burst...\n");
-    for (int i = 0; i < 16; i++) {
-        snd_pcm_sframes_t frames = snd_pcm_writei(handle, buffer, sizeof(buffer));
-        if (frames < 0) {
-            frames = snd_pcm_recover(handle, frames, 0); // Handle buffer underruns automatically
-        }
-        if (frames < 0) {
-            fprintf(stderr, "snd_pcm_writei failed entirely: %s\n", snd_strerror(frames));
-            break;
-        }
-    }
-
-    // 4. Safely flush residual buffer signals out and lock down audio channel
-    snd_pcm_drain(handle);
-    snd_pcm_close(handle);
-    printf("Done!\n");
-    return 0;
-}
-
-
-
-int main() {
-    // 1. Open PCM device for playback
-    snd_pcm_t *pcm_handle;
-    int rc = snd_pcm_open(&pcm_handle, "hw:1", SND_PCM_STREAM_PLAYBACK, 0);
-    if (rc < 0) {
-        std::cerr << "Error opening PCM device: " << snd_strerror(rc) << std::endl;
-        return -1;
-    }
-
-    // 2. Set hardware parameters
-    snd_pcm_hw_params_t *params;
-    snd_pcm_hw_params_alloca(&params);
-    snd_pcm_hw_params_any(pcm_handle, params);
-    
-    // Set 16-bit little-endian format
-    snd_pcm_hw_params_set_access(pcm_handle, params, SND_PCM_ACCESS_RW_INTERLEAVED);
-    snd_pcm_hw_params_set_format(pcm_handle, params, SND_PCM_FORMAT_S16_LE);
-    
-    unsigned int sample_rate = 44100;
-    snd_pcm_hw_params_set_channels(pcm_handle, params, 2); // Stereo
-    snd_pcm_hw_params_set_rate_near(pcm_handle, params, &sample_rate, 0);
-
-    // Apply parameters
-    rc = snd_pcm_hw_params(pcm_handle, params);
-    if (rc < 0) {
-        std::cerr << "Error setting HW parameters: " << snd_strerror(rc) << std::endl;
-        snd_pcm_close(pcm_handle);
-        return -1;
-    }
-
-    // 3. Prepare buffer (Generate a 440Hz sine wave tone)
-    int buffer_frames = 128;
-    short *buffer = new short[buffer_frames * 2]; // 2 channels
-    double frequency = 440.0;
-    double phase = 0.0;
-
-    // Play for 3 seconds
-    for (int i = 0; i < 3 * 44100 / buffer_frames; ++i) {
-        for (int frame = 0; frame < buffer_frames; ++frame) {
-            // Generate sine value (-32767 to 32767)
-            short val = (short)(sin(phase) * 32767.0);
-            phase += (2.0 * M_PI * frequency) / sample_rate;
-            if (phase > 2.0 * M_PI) phase -= 2.0 * M_PI;
-
-            // Interleaved: Left channel, Right channel
-            buffer[frame * 2] = val;
-            buffer[frame * 2 + 1] = val;
-        }
-
-        // Write data to ALSA
-        rc = snd_pcm_writei(pcm_handle, buffer, buffer_frames);
-        if (rc == -EPIPE) {
-            std::cerr << "Underrun occurred!" << std::endl;
-            snd_pcm_prepare(pcm_handle);
-        } else if (rc < 0) {
-            std::cerr << "Error writing to PCM: " << snd_strerror(rc) << std::endl;
-        }
-    }
-
-    // 4. Cleanup
-    delete[] buffer;
-    snd_pcm_drain(pcm_handle);
-    snd_pcm_close(pcm_handle);
-    return 0;
-}*/
