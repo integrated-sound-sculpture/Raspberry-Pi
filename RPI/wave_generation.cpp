@@ -27,8 +27,6 @@
 #include <thread>
 #include <chrono>
 
-#include <wiringSerial.h>
-
 #include <fcntl.h>			//Used for UART
 #include <termios.h>		//Used for UART
 
@@ -250,7 +248,8 @@ int main(void)
     addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
     // Open and configure the playback device
-    err = snd_pcm_open(&handle, "hw:1", SND_PCM_STREAM_PLAYBACK, 0);
+    // Use the default ALSA device so software conversion can handle the sample format/rate if needed.
+    err = snd_pcm_open(&handle, "hw:CARD=Headphones", SND_PCM_STREAM_PLAYBACK, 0);
     if (err < 0) {
         fprintf(stderr, "Playback open error: %s\n", snd_strerror(err));
         return EXIT_FAILURE;
@@ -260,6 +259,11 @@ int main(void)
                              SND_PCM_FORMAT_S16_LE,
                              SND_PCM_ACCESS_RW_INTERLEAVED,
                              1, SAMPLE_RATE, 1, 40000);
+    if (err < 0) {
+        fprintf(stderr, "Hardware configuration error: %s\n", snd_strerror(err));
+        snd_pcm_close(handle);
+        return EXIT_FAILURE;
+    }
     if (err < 0) {
         fprintf(stderr, "Hardware configuration error: %s\n", snd_strerror(err));
         snd_pcm_close(handle);
