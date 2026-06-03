@@ -21,7 +21,7 @@
 #define IN_BOARD_LED          GPIO_NUM_2                                  // ESP32 native LED - GPIO 2
 
 bool            flag          = true;                                     // Flag to enable print frequency reading
-uint32_t        overflow      = 20000;                                    // Max Pulse Counter value
+uint32_t        overflow      = 25000;                                    // Max Pulse Counter value
 int16_t         pulses        = 0;                                        // Pulse Counter value
 uint32_t        multPulses    = 0;                                        // Quantidade de overflows do contador PCNT
 uint32_t        sample_time   = 15000;                                    // sample time of 1 second to count pulses
@@ -129,14 +129,16 @@ int freq_measurement()
   if (flag == true)                                                     // If count has ended
   {
     flag = false;                                                       // change flag to disable print
-    frequency = (pulses + (multPulses * overflow)) / 2  ;               // Calculation of frequency
-    //printf("Frequency : %s", (ltos(frequency* (1/0.015), buf, 10)));               // Print frequency with commas
-    //printf(" Hz \n");                                                   // Print unity Hz
+    frequency = (pulses + (multPulses * overflow)) / 2.0  ;               // Calculation of frequency
+    
+    /*printf("Frequency : %s", (ltos(frequency* (1/0.015), buf, 10)));               // Print frequency with commas
+    printf(" Hz \n");                                                   // Print unity Hz
+    printf("pulses :%u", pulses);
+    printf("multPulses:  %u", multPulses);*/
+
 
     multPulses = 0;                                                     // Clear overflow counter
-    // Put your function here, if you want
-    //delay (100);                                                        // Delay 100 ms
-    // Put your function here, if you want
+
 
     pcnt_counter_clear(PCNT_COUNT_UNIT);                                // Clear Pulse Counter
     esp_timer_start_once(timer_handle, sample_time);                    // Initialize High resolution timer (1 sec)
@@ -146,14 +148,19 @@ return frequency * (1/0.015);
 }
 
 
-float convert_freq_lin(int in_min, int in_max, int out_min, int out_max, int freq){
+//---------------------------------------------------------------------------------
+
+float convert_freq_lin(int in_min, int in_max, int out_min, int out_max, int freq){        //converting the frequency using a linear scale
   float a = (float)(in_max-in_min)/(float)(out_max-out_min);
   float b = in_min - a*out_min;
   float y = a*freq +b;
   return y;
 }
 
-float convert_freq_log(int num_octaves, float min_freq, int freq, int in_max, int in_min){
+
+//---------------------------------------------------------------------------------
+
+float convert_freq_log(int num_octaves, float min_freq, int freq, int in_max, int in_min){    //converting teh frequency using a logaritmic scale
   float x = (float)(freq-in_min)/(float)(in_max-in_min); //convert input freq to range between 0 and 1
   float y = min_freq * pow(2,x*num_octaves);  //convert to logaritmic range 
   return y;
