@@ -137,7 +137,7 @@ void set_interface_attribs(void)
 
     options.c_lflag = 0;
     options.c_oflag = 0;
-    options.c_iflag = 0;
+    options.c_iflag = IGNPAR;
 
     options.c_cc[VMIN]  = 1;
     options.c_cc[VTIME] = 1;
@@ -203,7 +203,7 @@ void parameter_aquisition(void)
                 if(sscanf(line, "%f,%d", &freq, &ampl) == 2)
                 {
                     printf("Hello");
-                    //f1.f = freq;
+                    f1.f = freq;
                 }
             }
 /*
