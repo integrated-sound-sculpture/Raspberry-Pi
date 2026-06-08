@@ -10,10 +10,11 @@
 #define RXD2 16
 #define TXD2 17
 
-int freq_high = 610000;
-int freq_low = 600000;
+int freq_high = 450000;
+int freq_low = 400000;
 int in_freq;  //input frequency
 float freq;
+float d;
 int amplitude;
 
 bool auto_tune;   //auto tune select
@@ -42,10 +43,11 @@ void loop()
 {
     in_freq = freq_measurement();       //measure the input frequency
     Serial.print("input freq: ");
-    Serial.println(freq);
 
-    in_freq = 431000;
-    freq = convert_freq_log(5,65.406, in_freq, freq_high, freq_low);   //convert the input frequency to audible frequencies
+    in_freq = 425000;
+    d = convert_hand_lin(freq_low,freq_high,in_freq);
+    Serial.println(d);
+    freq = convert_freq_log(3,65.406, d, 30, 5);   //convert the input frequency to audible frequencies
 
     amplitude = pot_meter();               //measure the amplitude using a potmeter
     amplitude = 3000;
@@ -55,11 +57,13 @@ void loop()
         freq = autotune(freq);   //tune the frequency to perfect notes
     }
    
-   
-    String UART_data = String(freq) + "," + String(amplitude) + "\n";    //make a UART package
+    int waveform = waveform_select(); // 0,1 or 2
+
+
+    String UART_data = String(freq) + "," + String(amplitude) + "," + String(waveform) + "\n";    //make a UART package
     Serial2.println(UART_data);         //send data via UART connection
    
     Serial.println(UART_data);   
 
-    delay(900);
+    delay(300);
 }

@@ -51,8 +51,8 @@ void freq_calibration(int* freq_high, int* freq_low){  //calibrates the low and 
 bool autotune_select(){                                 // autotune selection returns bool when auto tune has been selected
     bool autotune = digitalRead(autotune_switch);
     delay(20);
-    return autotune;
-    //return false;
+    //return autotune;
+    return false;
 }
 
 float autotune(float freq){                                //this function changes the a frequencie to a perfect note
@@ -67,3 +67,10 @@ int pot_meter(){                                        // potmeter is used to c
     return potValue;
 }
  
+
+int waveform_select(){
+    bool waveform_select1 = digitalRead(waveform_pin1);
+    bool waveform_select2 = digitalRead(waveform_pin2);
+    int waveform = waveform_select1 + waveform_select2;
+    return waveform;
+}

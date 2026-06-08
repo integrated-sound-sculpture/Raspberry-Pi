@@ -15,7 +15,7 @@ PIN LAYOUT OF ESP32 WROOM (http://wiki.fluidnc.com/en/hardware/esp32_pin_referen
     -> input control:
             - pin 5: calibration_button
             - pin 4: potentiometer
-            - pin 2: rotary switch for wave_form select.
+            - pin 22 & 23: rotary switch for wave_form select.
             - pin 12: autotune button
 
     non usable pins: 0, 1, 3, 6, 7, 8, 9, 10, 11

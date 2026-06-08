@@ -9,6 +9,10 @@
 #include "driver/pcnt.h"                                                  // Library ESP32 PCNT
 #include "soc/pcnt_struct.h"
 #include "pulse_cnt.h"
+#include <cmath>
+
+
+
 
 #define PCNT_COUNT_UNIT       PCNT_UNIT_0                                 // Set Pulse Counter Unit - 0 
 #define PCNT_COUNT_CHANNEL    PCNT_CHANNEL_0                              // Set Pulse Counter channel - 0 
@@ -160,8 +164,34 @@ float convert_freq_lin(int in_min, int in_max, int out_min, int out_max, int fre
 
 //---------------------------------------------------------------------------------
 
-float convert_freq_log(int num_octaves, float min_freq, int freq, int in_max, int in_min){    //converting teh frequency using a logaritmic scale
+float convert_freq_log(int num_octaves, float min_freq, float freq, int in_max, int in_min){    //converting teh frequency using a logaritmic scale
+  Serial.println(freq);
+
   float x = (float)(freq-in_min)/(float)(in_max-in_min); //convert input freq to range between 0 and 1
+  
+  Serial.println(x);
   float y = min_freq * pow(2,x*num_octaves);  //convert to logaritmic range 
   return y;
 }
+
+
+
+//---------------------------------------------------------------------------------
+
+
+float convert_hand_lin(int f_min, int f_max, int freq){        //converting the hand_position using a linear scale
+  float max_d = 30.0;
+  float min_d = 5.0;
+
+
+  float B_1 = (min_d*std::pow(f_max, 2))/std::pow(f_min, 2)  - min_d;
+  float B_2 = 1 -  ( std::pow(f_max, 2) *  min_d)  /  ( std::pow(f_min, 2)  * max_d)  ;
+  float B = B_1/B_2;
+
+  float A_1 = 1.0 + B/max_d;
+  float A = f_max  * std::pow(A_1, 1.0/2.0) ;
+
+  float d = B/(std::pow(A, 2)/std::pow(freq, 2)-1);
+  return d;
+}
+
