@@ -42,7 +42,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
-#include <pigpio.h>
+#include <gpiod.h>
 
 #define S0 23
 #define S1 17
@@ -51,12 +51,90 @@
 #define E0 24
 #define E1 25
 
-gpioSetMode(S0, PI_OUTPUT);
-gpioSetMode(S1, PI_OUTPUT);
-gpioSetMode(S2, PI_OUTPUT);
-gpioSetMode(S3, PI_OUTPUT);
-gpioSetMode(E0, PI_OUTPUT);
-gpioSetMode(E1, PI_OUTPUT);
+// GPIO chip and request for libgpiod v2.x
+struct gpiod_chip *gpiod_chip_handle = NULL;
+struct gpiod_line_request *gpio_request = NULL;
+unsigned int gpio_offsets[6] = {S0, S1, S2, S3, E0, E1};
+
+void init_gpio(void)
+{
+    // Open the GPIO chip (typically /dev/gpiochip0 on Raspberry Pi)
+    gpiod_chip_handle = gpiod_chip_open("/dev/gpiochip0");
+    if (!gpiod_chip_handle) {
+        perror("gpiod_chip_open");
+        exit(1);
+    }
+
+    // Create line configuration for all pins as outputs
+    struct gpiod_line_config *line_cfg = gpiod_line_config_new();
+    if (!line_cfg) {
+        perror("gpiod_line_config_new");
+        gpiod_chip_close(gpiod_chip_handle);
+        exit(1);
+    }
+
+    struct gpiod_line_settings *settings = gpiod_line_settings_new();
+    if (!settings) {
+        perror("gpiod_line_settings_new");
+        gpiod_line_config_free(line_cfg);
+        gpiod_chip_close(gpiod_chip_handle);
+        exit(1);
+    }
+
+    // Configure settings as output
+    gpiod_line_settings_set_direction(settings, GPIOD_LINE_DIRECTION_OUTPUT);
+    // gpiod_line_settings_set_output_value(settings, GPIOD_LINE_VALUE_ACTIVE);
+
+    // Add all pins with these settings
+    if (gpiod_line_config_add_line_settings(line_cfg, gpio_offsets, 6, settings) < 0) {
+        perror("gpiod_line_config_add_line_settings");
+        gpiod_line_settings_free(settings);
+        gpiod_line_config_free(line_cfg);
+        gpiod_chip_close(gpiod_chip_handle);
+        exit(1);
+    }
+
+    // Create request config
+    struct gpiod_request_config *req_cfg = gpiod_request_config_new();
+    if (!req_cfg) {
+        perror("gpiod_request_config_new");
+        gpiod_line_settings_free(settings);
+        gpiod_line_config_free(line_cfg);
+        gpiod_chip_close(gpiod_chip_handle);
+        exit(1);
+    }
+
+    gpiod_request_config_set_consumer(req_cfg, "wave_generation");
+
+    // Request the lines
+    gpio_request = gpiod_chip_request_lines(gpiod_chip_handle, req_cfg, line_cfg);
+    if (!gpio_request) {
+        perror("gpiod_chip_request_lines");
+        gpiod_request_config_free(req_cfg);
+        gpiod_line_settings_free(settings);
+        gpiod_line_config_free(line_cfg);
+        gpiod_chip_close(gpiod_chip_handle);
+        exit(1);
+    }
+
+    // Clean up temporary configs
+    gpiod_request_config_free(req_cfg);
+    gpiod_line_settings_free(settings);
+    gpiod_line_config_free(line_cfg);
+}
+
+void cleanup_gpio(void)
+{
+    // Release the line request
+    if (gpio_request) {
+        gpiod_line_request_release(gpio_request);
+    }
+
+    // Close the chip
+    if (gpiod_chip_handle) {
+        gpiod_chip_close(gpiod_chip_handle);
+    }
+}
 
 typedef enum{
     SINE,
@@ -93,19 +171,21 @@ void drive_leds(void)
 {
     uint8_t value = 0;
     int i;
-    bool array[5]
+    enum gpiod_line_value array[5];
 
     while(true) {
-        for (i = 0; i < 4; i++) {
-            array[i] = (value >> i) & 1;
-        }
-        value++;
-        gpioWrite(S0, array[0]);
-        gpioWrite(S1, array[1]);
-        gpioWrite(S2, array[2]);
-        gpioWrite(S3, array[3]);
-        gpioWrite(E0, array[4]);
-        gpioWrite(E1, ~array[4]);
+        // for (i = 0; i < 5; i++) {
+        //     array[i] = (value >> i) & 1;
+        // }
+        // value++;
+        
+        // // Write values using libgpiod v2.x API
+        // gpiod_line_request_set_value(gpio_request, gpio_offsets[0], array[0]);  // S0
+        // gpiod_line_request_set_value(gpio_request, gpio_offsets[1], array[1]);  // S1
+        // gpiod_line_request_set_value(gpio_request, gpio_offsets[2], array[2]);  // S2
+        // gpiod_line_request_set_value(gpio_request, gpio_offsets[3], array[3]);  // S3
+        // gpiod_line_request_set_value(gpio_request, gpio_offsets[4], array[4]);  // E0
+        // gpiod_line_request_set_value(gpio_request, gpio_offsets[5], ~array[4]); // E1 (inverted)
 
         if (value == 32) {
             value = 0;
@@ -271,6 +351,7 @@ void parameter_aquisition(void)
 int main(void)
 {
     set_interface_attribs();
+    init_gpio();
     
     int err;
     snd_pcm_t *handle;
@@ -288,6 +369,7 @@ int main(void)
     err = snd_pcm_open(&handle, "hw:CARD=Headphones", SND_PCM_STREAM_PLAYBACK, 0);
     if (err < 0) {
         fprintf(stderr, "Playback open error: %s\n", snd_strerror(err));
+        cleanup_gpio();
         return EXIT_FAILURE;
     }
 
@@ -298,11 +380,7 @@ int main(void)
     if (err < 0) {
         fprintf(stderr, "Hardware configuration error: %s\n", snd_strerror(err));
         snd_pcm_close(handle);
-        return EXIT_FAILURE;
-    }
-    if (err < 0) {
-        fprintf(stderr, "Hardware configuration error: %s\n", snd_strerror(err));
-        snd_pcm_close(handle);
+        cleanup_gpio();
         return EXIT_FAILURE;
     }
 
@@ -361,6 +439,7 @@ int main(void)
         }
         if (frames < 0) {
             fprintf(stderr, "snd_pcm_writei failed: %s\n", snd_strerror(frames));
+            cleanup_gpio();
             break;
         }
 
@@ -378,6 +457,7 @@ int main(void)
     
     snd_pcm_drain(handle);
     snd_pcm_close(handle);
+    cleanup_gpio();
     printf("Done!\n");
     return 0;
 }

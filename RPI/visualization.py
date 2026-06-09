@@ -6,17 +6,19 @@ from scipy.io import wavfile
 import numpy as np
 import pyqtgraph as pg
 import sys
-import sounddevice as sd
+# import sounddevice as sd
 import threading
 from scipy.fft import fft, fftfreq
 from scipy.signal import spectrogram
-import soundfile as sf
+# import soundfile as sf
 import socket
 from pyqtgraph.Qt import QtCore, QtWidgets, QtGui
 
 
-# sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-# sock.bind(("127.0.0.1", 8080))
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.bind(("127.0.0.1", 8080))
+
+sample_rate = 44100
 
 # def main():
 #     while True:
@@ -34,13 +36,13 @@ from pyqtgraph.Qt import QtCore, QtWidgets, QtGui
 app = QtWidgets.QApplication(sys.argv)                              #start the application
 
 #pyqtgraph.examples.run()
-samples, sample_rate = sf.read(r"C:\BAP\Theremin_sci-fi.wav", dtype='float32')        #read out the wav file
+# samples, sample_rate = sf.read(r"C:\BAP\Theremin_sci-fi.wav", dtype='float32')        #read out the wav file
 
-if samples.ndim > 1:                                                #in the case of stereo, take one channel
-    samples = samples[:, 0]
+# if samples.ndim > 1:                                                #in the case of stereo, take one channel
+#     samples = samples[:, 0]
 
-samples = samples.astype(np.float32)                                #convert to float32 for processing, int will cut off values too much
-samples = samples / np.max(np.abs(samples))                         #normalize samples to -1.0 to 1.0 
+# samples = samples.astype(np.float32)                                #convert to float32 for processing, int will cut off values too much
+# samples = samples / np.max(np.abs(samples))                         #normalize samples to -1.0 to 1.0 
 
 chunk_size = 1024                                               
 time = np.arange(chunk_size) / sample_rate                          #time array for one chunk, used for plotting the waveform
@@ -192,20 +194,20 @@ def on_select(index):                                               #function to
 
 selector.currentIndexChanged.connect(on_select)
 
-audio_running = True
-def audio_thread():                                                #Test thread fit audio to the plots
-    global current_chunk
-    audio_pos = 0
-    with sd.OutputStream(samplerate=sample_rate, channels=1) as stream:
-        while audio_running:
-            if audio_pos + chunk_size > len(samples):
-                audio_pos = 0
-            chunk = samples[audio_pos:audio_pos + chunk_size]
-            current_chunk = chunk.copy()
-            if not audio_running:
-                break
-            stream.write(chunk)        
-            audio_pos += chunk_size
+# audio_running = True
+# def audio_thread():                                                #Test thread fit audio to the plots
+#     global current_chunk
+#     audio_pos = 0
+#     with sd.OutputStream(samplerate=sample_rate, channels=1) as stream:
+#         while audio_running:
+#             if audio_pos + chunk_size > len(samples):
+#                 audio_pos = 0
+#             chunk = samples[audio_pos:audio_pos + chunk_size]
+#             current_chunk = chunk.copy()
+#             if not audio_running:
+#                 break
+#             stream.write(chunk)        
+#             audio_pos += chunk_size
 
 thread = threading.Thread(target=audio_thread, daemon=True)
 thread.start()
