@@ -44,9 +44,9 @@ app = QtWidgets.QApplication(sys.argv)                              #start the a
 # samples = samples.astype(np.float32)                                #convert to float32 for processing, int will cut off values too much
 # samples = samples / np.max(np.abs(samples))                         #normalize samples to -1.0 to 1.0 
 
-chunk_size = 1024                                               
+chunk_size = 512                                               
 time = np.arange(chunk_size) / sample_rate                          #time array for one chunk, used for plotting the waveform
-chunk = samples[:chunk_size]                                        #audio data chunk
+chunk = np.zeros(chunk_size)                                   #audio data chunk
 current_chunk = chunk.copy()                                        #copy of the current chunk, used as a register
 
 fft_values = np.abs(np.array(fft(chunk)))[:chunk_size//2]           #FFT values for the chunk // 2 to only take positive frequencies
@@ -209,13 +209,14 @@ selector.currentIndexChanged.connect(on_select)
 #             stream.write(chunk)        
 #             audio_pos += chunk_size
 
-thread = threading.Thread(target=audio_thread, daemon=True)
-thread.start()
+# thread = threading.Thread(target=audio_thread, daemon=True)
+# thread.start()
 
 def on_app_quit():                                                  #fix the error of closing while thread is still running
-    global audio_running
-    audio_running = False
-    thread.join(timeout=1.0)
+    # global audio_running
+    # audio_running = False
+    # thread.join(timeout=1.0)
+    pass
 
 app.aboutToQuit.connect(on_app_quit)                                # Connect the cleanup function to the application's quit signal
 
@@ -223,7 +224,11 @@ smooth_midi = [69.0]
 
 def update():                                                       #update function for the plots, called by a timer
     global waterfall_buffer, current_chunk, p1_ymax, p2_ymax, p3_fft_ymax
-    chunk = current_chunk.copy()                                    #making use of the register
+    
+    data, addr = sock.recvfrom(chunk_size * 2)
+    chunk = np.frombuffer(data, dtype=np.int16)
+    
+    # chunk = current_chunk.copy()                                    #making use of the register
 
     fft_values = np.abs(np.array(fft(chunk)))[:chunk_size//2]       #perform fft, put it in an array and take the absolute value, for only positive frequencies
     fft_freqs = fftfreq(chunk_size, 1/sample_rate)[:chunk_size//2]  #get corresponding frequencies for the fft values
