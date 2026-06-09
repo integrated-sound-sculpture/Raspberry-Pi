@@ -228,6 +228,7 @@ def update():                                                       #update func
     
     data, addr = sock.recvfrom(chunk_size * 2)
     chunk = np.frombuffer(data, dtype=np.int16)
+    chunk = chunk / np.max(np.abs(chunk))
     
     # chunk = current_chunk.copy()                                    #making use of the register
 
