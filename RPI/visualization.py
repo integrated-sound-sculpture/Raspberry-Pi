@@ -132,6 +132,7 @@ p4.setYRange(0, 1)
 p4.setXRange(0, 88)
 p4.getAxis('bottom').setStyle(showValues=False)
 p4.getAxis('left').setStyle(showValues=False)
+p4.hide()
 
 white_keys = []
 black_keys = []
@@ -175,7 +176,7 @@ def on_select(index):                                               #function to
         p1.show()
         p2.hide()
         p3_packet.show()
-        p4.show()
+        p4.hide()
     elif index == 1:
         p1.show()
         p2.hide()
