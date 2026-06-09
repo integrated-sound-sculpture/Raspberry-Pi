@@ -174,18 +174,18 @@ void drive_leds(void)
     enum gpiod_line_value array[5];
 
     while(true) {
-        // for (i = 0; i < 5; i++) {
-        //     array[i] = (value >> i) & 1;
-        // }
-        // value++;
+        for (i = 0; i < 5; i++) {
+            array[i] = static_cast<enum gpiod_line_value>((value >> i) & 1);
+        }
+        value++;
         
-        // // Write values using libgpiod v2.x API
-        // gpiod_line_request_set_value(gpio_request, gpio_offsets[0], array[0]);  // S0
-        // gpiod_line_request_set_value(gpio_request, gpio_offsets[1], array[1]);  // S1
-        // gpiod_line_request_set_value(gpio_request, gpio_offsets[2], array[2]);  // S2
-        // gpiod_line_request_set_value(gpio_request, gpio_offsets[3], array[3]);  // S3
-        // gpiod_line_request_set_value(gpio_request, gpio_offsets[4], array[4]);  // E0
-        // gpiod_line_request_set_value(gpio_request, gpio_offsets[5], ~array[4]); // E1 (inverted)
+        // Write values using libgpiod v2.x API
+        gpiod_line_request_set_value(gpio_request, gpio_offsets[0], array[0]);  // S0
+        gpiod_line_request_set_value(gpio_request, gpio_offsets[1], array[1]);  // S1
+        gpiod_line_request_set_value(gpio_request, gpio_offsets[2], array[2]);  // S2
+        gpiod_line_request_set_value(gpio_request, gpio_offsets[3], array[3]);  // S3
+        gpiod_line_request_set_value(gpio_request, gpio_offsets[4], array[4]);  // E0
+        gpiod_line_request_set_value(gpio_request, gpio_offsets[5], ~array[4]); // E1 (inverted)
 
         if (value == 32) {
             value = 0;
