@@ -42,6 +42,22 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
+#include <pigpio.h>
+
+#define S0 23
+#define S1 17
+#define S2 27
+#define S3 22
+#define E0 24
+#define E1 25
+
+gpioSetMode(S0, PI_OUTPUT);
+gpioSetMode(S1, PI_OUTPUT);
+gpioSetMode(S2, PI_OUTPUT);
+gpioSetMode(S3, PI_OUTPUT);
+gpioSetMode(E0, PI_OUTPUT);
+gpioSetMode(E1, PI_OUTPUT);
+
 typedef enum{
     SINE,
     BLOCK,
@@ -73,6 +89,32 @@ settings f1{
     1.0f
 };
 
+void drive_leds(void)
+{
+    uint8_t value = 0;
+    int i;
+    bool array[5]
+
+    while(true) {
+        for (i = 0; i < 4; i++) {
+            array[i] = (value >> i) & 1;
+        }
+        value++;
+        gpioWrite(S0, array[0]);
+        gpioWrite(S1, array[1]);
+        gpioWrite(S2, array[2]);
+        gpioWrite(S3, array[3]);
+        gpioWrite(E0, array[4]);
+        gpioWrite(E1, ~array[4]);
+
+        if (value == 32) {
+            value = 0;
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    }
+}
+
 int sock = socket(AF_INET, SOCK_DGRAM, 0);
 
 //-------------------------
@@ -82,7 +124,6 @@ int sock = socket(AF_INET, SOCK_DGRAM, 0);
 int uart0_filestream = -1;
 
 struct termios options;
-
 
 void set_interface_attribs(void)
 {
@@ -99,8 +140,7 @@ void set_interface_attribs(void)
     //
     //	O_NOCTTY - When set and path identifies a terminal device, open() shall not cause the terminal device to become the controlling terminal for the process.
     uart0_filestream = open("/dev/ttyS0", O_RDWR | O_NOCTTY);		//Open in non blocking read/write mode
-    if (uart0_filestream == -1)
-    {
+    if (uart0_filestream == -1) {
         //ERROR - CAN'T OPEN SERIAL PORT
         printf("Error - Unable to open UART.  Ensure it is not in use by another application\n");
     }
@@ -169,11 +209,6 @@ bool read_line(int fd, char* buffer, size_t maxlen)
                 buffer[idx++] = c;
             }
         }
-        else
-        {
-            // optional timeout/failure handling
-            usleep(1000);
-        }
     }
 
     buffer[idx] = '\0';
@@ -240,7 +275,8 @@ int main(void)
     int err;
     snd_pcm_t *handle;
     
-    std::thread a_thread(parameter_aquisition);
+    std::thread t0(parameter_aquisition);
+    std::thread t1(drive_leds);
     
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
