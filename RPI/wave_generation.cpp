@@ -312,6 +312,7 @@ void parameter_aquisition(void)
                 float freq;
                 int ampl;
                 int form;
+                int calib;
                 
                 // printf("RX = [%s]\n", line);
                 // printf("%d\n", sscanf(line, "%f,%d,%d", &freq, &ampl, &form) == 3);
@@ -321,6 +322,10 @@ void parameter_aquisition(void)
                     // printf("Hello");
                     f1.f = freq;
                     f1.wave = static_cast<FORM>(form);
+                }
+                else if(sscanf(line, "Calibration %d", &calib) == 1)
+                {
+                    // Handle calibration command
                 }
             }
 /*
