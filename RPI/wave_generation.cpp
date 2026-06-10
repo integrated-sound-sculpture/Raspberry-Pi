@@ -185,7 +185,7 @@ void drive_leds(void)
         gpiod_line_request_set_value(gpio_request, gpio_offsets[2], array[2]);  // S2
         gpiod_line_request_set_value(gpio_request, gpio_offsets[3], array[3]);  // S3
         gpiod_line_request_set_value(gpio_request, gpio_offsets[4], array[4]);  // E0
-        gpiod_line_request_set_value(gpio_request, gpio_offsets[5], ~array[4]); // E1 (inverted)
+        gpiod_line_request_set_value(gpio_request, gpio_offsets[5], static_cast<enum gpiod_line_value>(~array[4])); // E1 (inverted)
 
         if (value == 32) {
             value = 0;
