@@ -1,0 +1,12 @@
+numpy
+scipy
+tqdm
+pandas
+matplotlib
+ipywidgets
+ipympl
+ipyleaflet
+jupyterlab
+pyqtgraph
+sys
+socket
