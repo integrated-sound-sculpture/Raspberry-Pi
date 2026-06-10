@@ -17,6 +17,7 @@ from pyqtgraph.Qt import QtCore, QtWidgets, QtGui
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind(("127.0.0.1", 8080))
+sock.setblocking(False)
 
 sample_rate = 44100
 
@@ -44,7 +45,7 @@ app = QtWidgets.QApplication(sys.argv)                              #start the a
 # samples = samples.astype(np.float32)                                #convert to float32 for processing, int will cut off values too much
 # samples = samples / np.max(np.abs(samples))                         #normalize samples to -1.0 to 1.0 
 
-chunk_size = 512                                               
+chunk_size = 2048                                             
 time = np.arange(chunk_size) / sample_rate                          #time array for one chunk, used for plotting the waveform
 chunk = np.zeros(chunk_size)                                   #audio data chunk
 current_chunk = chunk.copy()                                        #copy of the current chunk, used as a register
@@ -58,7 +59,7 @@ layout = QtWidgets.QVBoxLayout()
 win.setLayout(layout)
 
 selector = QtWidgets.QComboBox()                                    #create dropdown selector
-selector.addItems(['All', 'Sine Wave', 'Spectrogram','Notes'])
+selector.addItems(['All', 'Sine Wave', 'FFT', 'Spectrogram','Notes'])
 layout.addWidget(selector)
 
 p1_ymax = 0.1                                                       #initial y-axis max's, will be adjucted in update()
@@ -183,6 +184,11 @@ def on_select(index):                                               #function to
         p4.hide()
     elif index == 2:
         p1.hide()
+        p2.show()
+        p3_packet.hide()
+        p4.hide()
+    elif index == 3:
+        p1.hide()
         p2.hide()
         p3_packet.show()
         p4.hide()
@@ -223,19 +229,23 @@ app.aboutToQuit.connect(on_app_quit)                                # Connect th
 smooth_midi = [69.0]
 
 def update():                                                       #update function for the plots, called by a timer
-    global waterfall_buffer, current_chunk, p1_ymax, p2_ymax, p3_fft_ymax
-    
+    global waterfall_buffer, chunk_size, p1_ymax, p2_ymax, p3_fft_ymax
+
     data, addr = sock.recvfrom(chunk_size * 2)
     chunk = np.frombuffer(data, dtype=np.int16)
+
+
     chunk = chunk / np.max(np.abs(chunk))
-    
+
+    if chunk is None:
+        return
     # chunk = current_chunk.copy()                                    #making use of the register
 
     fft_values = np.abs(np.array(fft(chunk)))[:chunk_size//2]       #perform fft, put it in an array and take the absolute value, for only positive frequencies
     fft_freqs = fftfreq(chunk_size, 1/sample_rate)[:chunk_size//2]  #get corresponding frequencies for the fft values
     fft_values_log = np.interp(log_freqs, fft_freqs, fft_values)    #interpolate the fft values to match the log frequency bins
 
-    f,t,Sxx = spectrogram(chunk, fs=sample_rate, nperseg=256, noverlap=128) #make spectrogram
+    f,t,Sxx = spectrogram(chunk, fs=sample_rate, nperseg =512, noverlap=256) #make spectrogram
     magnitude_db_spec = 10 * np.log10(Sxx + 1e-10)                  #convert magnitude to logaritmic, avoid log(0)
     col = magnitude_db_spec.mean(axis=1)                            #average over time to get a single column for the waterfall plot    
     col_log = np.interp(log_freqs, f, col)                          #interpolate to match the log frequency bins
@@ -283,7 +293,7 @@ def update():                                                       #update func
 
 timer = QtCore.QTimer()                                             #timer to call the update function every 50 ms
 timer.timeout.connect(update)
-timer.start(50)
+timer.start(5)
 
 win.showMaximized()                                                 #show the window fullscreen
 win.show()

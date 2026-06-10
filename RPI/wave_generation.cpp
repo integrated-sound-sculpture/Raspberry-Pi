@@ -154,10 +154,10 @@ typedef struct settings{
 #define PORT        8080 
 #define MAXLINE     1024 
 
-#define WAVE_FORM SINE
+#define WAVE_FORM BLOCK
 #define SAMPLE_RATE 44100
 #define TOTAL_FRAMES (SAMPLE_RATE * 4) // Play for 5 seconds total
-#define BUFFER_SIZE 512                // Smaller buffers provide faster frequency updates
+#define BUFFER_SIZE 2048                // Smaller buffers provide faster frequency updates
 
 short buffer[BUFFER_SIZE];
 
@@ -311,14 +311,16 @@ void parameter_aquisition(void)
             {
                 float freq;
                 int ampl;
+                int form;
                 
-                printf("RX = [%s]\n", line);
-                printf("%d\n", sscanf(line, "%f,%d", &freq, &ampl) == 2);
+                // printf("RX = [%s]\n", line);
+                // printf("%d\n", sscanf(line, "%f,%d,%d", &freq, &ampl, &form) == 3);
 
-                if(sscanf(line, "%f,%d", &freq, &ampl) == 2)
+                if(sscanf(line, "%f,%d,%d", &freq, &ampl, &form) == 3)
                 {
-                    printf("Hello");
+                    // printf("Hello");
                     f1.f = freq;
+                    f1.wave = static_cast<FORM>(form);
                 }
             }
 /*
