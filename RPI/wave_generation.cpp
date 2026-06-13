@@ -44,12 +44,12 @@
 
 #include <gpiod.h>
 
-#define S0 23
-#define S1 17
-#define S2 27
-#define S3 22
-#define E0 24
-#define E1 25
+#define S0 17
+#define S1 27
+#define S2 22
+#define S3 23
+#define E0 25
+#define E1 24
 
 // GPIO chip and request for libgpiod v2.x
 struct gpiod_chip *gpiod_chip_handle = NULL;
@@ -155,7 +155,7 @@ typedef struct settings{
 #define MAXLINE     1024 
 
 #define WAVE_FORM BLOCK
-#define SAMPLE_RATE 44100
+#define SAMPLE_RATE 48000
 #define TOTAL_FRAMES (SAMPLE_RATE * 4) // Play for 5 seconds total
 #define BUFFER_SIZE 2048                // Smaller buffers provide faster frequency updates
 
@@ -171,13 +171,21 @@ void drive_leds(void)
 {
     uint8_t value = 0;
     int i;
+    float f;
     enum gpiod_line_value array[5];
 
     while(true) {
+        f = f1.f;
+        value = (uint8_t) round(8 * log2(f / 130.8));
+        if (value < 0) {
+            value = 0;
+        } else if (value > 32) {
+            value = 32;
+        }
+
         for (i = 0; i < 5; i++) {
             array[i] = static_cast<enum gpiod_line_value>((value >> i) & 1);
         }
-        value++;
         
         // Write values using libgpiod v2.x API
         gpiod_line_request_set_value(gpio_request, gpio_offsets[0], array[0]);  // S0
@@ -187,11 +195,7 @@ void drive_leds(void)
         gpiod_line_request_set_value(gpio_request, gpio_offsets[4], array[4]);  // E0
         gpiod_line_request_set_value(gpio_request, gpio_offsets[5], static_cast<enum gpiod_line_value>(~array[4])); // E1 (inverted)
 
-        if (value == 32) {
-            value = 0;
-        }
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 }
 
@@ -207,43 +211,15 @@ struct termios options;
 
 void set_interface_attribs(void)
 {
-    //OPEN THE UART
-    //The flags (defined in fcntl.h):
-    //	Access modes (use 1 of these):
-    //		O_RDONLY - Open for reading only.
-    //		O_RDWR - Open for reading and writing.
-    //		O_WRONLY - Open for writing only.
-    //
-    //	O_NDELAY / O_NONBLOCK (same function) - Enables nonblocking mode. When set read requests on the file can return immediately with a failure status
-    //											if there is no input immediately available (instead of blocking). Likewise, write requests can also return
-    //											immediately with a failure status if the output can't be written immediately.
-    //
-    //	O_NOCTTY - When set and path identifies a terminal device, open() shall not cause the terminal device to become the controlling terminal for the process.
+    //Open uart
     uart0_filestream = open("/dev/ttyS0", O_RDWR | O_NOCTTY);		//Open in non blocking read/write mode
     if (uart0_filestream == -1) {
         //ERROR - CAN'T OPEN SERIAL PORT
-        printf("Error - Unable to open UART.  Ensure it is not in use by another application\n");
+        printf("Error: Unable to open UART\n");
     }
 
-    //CONFIGURE THE UART
-    //The flags (defined in /usr/include/termios.h - see http://pubs.opengroup.org/onlinepubs/007908799/xsh/termios.h.html):
-    //	Baud rate:- B1200, B2400, B4800, B9600, B19200, B38400, B57600, B115200, B230400, B460800, B500000, B576000, B921600, B1000000, B1152000, B1500000, B2000000, B2500000, B3000000, B3500000, B4000000
-    //	CSIZE:- CS5, CS6, CS7, CS8
-    //	CLOCAL - Ignore modem status lines
-    //	CREAD - Enable receiver
-    //	IGNPAR = Ignore characters with parity errors
-    //	ICRNL - Map CR to NL on input (Use for ASCII comms where you want to auto correct end of line characters - don't use for bianry comms!)
-    //	PARENB - Parity enable
-    //	PARODD - Odd parity (else even)
-    /*
-    tcgetattr(uart0_filestream, &options);
-	options.c_cflag = B115200 | CS8 | CLOCAL | CREAD;		//<Set baud rate
-	options.c_iflag = IGNPAR;
-	options.c_oflag = 0;
-	options.c_lflag = 0;
-	tcflush(uart0_filestream, TCIFLUSH);
-	tcsetattr(uart0_filestream, TCSANOW, &options);
-    */
+    //Configure uart
+    
     tcgetattr(uart0_filestream, &options);
 
     cfsetispeed(&options, B115200);
@@ -302,15 +278,12 @@ void parameter_aquisition(void)
         //----- CHECK FOR ANY RX BYTES -----
         if (uart0_filestream != -1)
         {
-            // Read up to 255 characters from the port if they are there
-            // unsigned char rx_buffer[256];
-            
             char line[128];
 
             if(read_line(uart0_filestream, line, sizeof(line)))
             {
                 float freq;
-                int ampl;
+                float ampl;
                 int form;
                 int calib;
                 
@@ -322,34 +295,13 @@ void parameter_aquisition(void)
                     // printf("Hello");
                     f1.f = freq;
                     f1.wave = static_cast<FORM>(form);
+                    f1.ampl = ampl/4096;
                 }
                 else if(sscanf(line, "Calibration %d", &calib) == 1)
                 {
                     // Handle calibration command
                 }
             }
-/*
-            int rx_length = read(uart0_filestream, rx_buffer, sizeof(rx_buffer)-1);
-
-            if(rx_length > 0)
-            {
-                rx_buffer[rx_length] = '\0';
-            }
-            if (rx_length < 0)
-            {
-                //An error occured (will occur if there are no bytes)
-            }
-            else if (rx_length == 0)
-            {
-                //No data waiting
-            }
-            else
-            {
-                //Bytes received
-                rx_buffer[rx_length] = '\0';
-                printf("%i bytes read : %s\n", rx_length, rx_buffer);
-            }
-*/
         }
         //std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
@@ -357,20 +309,26 @@ void parameter_aquisition(void)
 
 int main(void)
 {
+    // UART
     set_interface_attribs();
+
+    // GPIO
     init_gpio();
     
-    int err;
-    snd_pcm_t *handle;
-    
+    // Subprocesses
     std::thread t0(parameter_aquisition);
     std::thread t1(drive_leds);
     
+    // Communication to Python over static internal network
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_port = htons(PORT);
     addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
+
+    // Audio
+    int err;
+    snd_pcm_t *handle;
     // Open and configure the playback device
     // Use the default ALSA device so software conversion can handle the sample format/rate if needed.
     err = snd_pcm_open(&handle, "hw:CARD=Headphones", SND_PCM_STREAM_PLAYBACK, 0);
@@ -391,38 +349,39 @@ int main(void)
         return EXIT_FAILURE;
     }
 
-    printf("Sweeping frequency smoothly from 220Hz to 880Hz...\n");
+    printf("Reading frequency from uart and .\n");
 
-    int frames_played = 0;
     double phase = 0.0; // The critical running phase accumulator
+    double current_frequency = f1.f;
+    int current_amplitude = f1.ampl;
 
-    //while (frames_played < TOTAL_FRAMES) {
     while (true) {
         
-        // Calculate a target frequency that slides upward over time
-        double current_frequency = f1.f; // Ramps from 220 to 880Hz
+        // Obtain target frequency and amplitude from 
+        current_frequency = f1.f;
+        current_amplitude = f1.ampl
 
         // Fill the current block buffer
         for (int i = 0; i < BUFFER_SIZE; i++) {
             // Calculate the wave value using the current accumulated phase
             switch (f1.wave) {
                 case SINE:
-                    buffer[i] = (short)(sin(phase) * 30000.0);
+                    buffer[i] = (short)(sin(phase) * 32767.0 * current_amplitude);
                     break;
                 case BLOCK:
                     if (phase <= M_PI){
-                        buffer[i] = (short) 30000.0;
+                        buffer[i] = (short) 32767.0 * current_amplitude;
                     }
                     else{
-                        buffer[i] = (short) -30000.0;
+                        buffer[i] = (short) -32767.0 * current_amplitude;
                     }
                     break;
                 case TRIANGLE:
                     if (phase <= M_PI){
-                        buffer[i] = (short)(phase*60000.0/M_PI-30000.0);
+                        buffer[i] = (short)((2*phase*32767.0/M_PI-32767.0) * current_amplitude);
                     }
                     else{
-                        buffer[i] = (short)((M_PI-phase)*60000.0/M_PI+30000.0);
+                        buffer[i] = (short)((2*(M_PI-phase)*32767.0/M_PI+32767.0) * current_amplitude);
                     }
                     break;
                 default:
@@ -450,10 +409,6 @@ int main(void)
             break;
         }
 
-        frames_played += BUFFER_SIZE;
-        if (frames_played >= TOTAL_FRAMES) {
-            frames_played = 0;
-        }
         sendto( sock,
                 buffer,
                 sizeof(buffer),
