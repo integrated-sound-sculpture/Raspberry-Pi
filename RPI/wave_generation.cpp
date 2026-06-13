@@ -358,8 +358,9 @@ int main(void)
     while (true) {
         
         // Obtain target frequency and amplitude from 
-        current_frequency = f1.f;
-        current_amplitude = f1.ampl
+        // current_frequency = f1.f;
+        current_frequency = 1520;
+        current_amplitude = f1.ampl;
 
         // Fill the current block buffer
         for (int i = 0; i < BUFFER_SIZE; i++) {
