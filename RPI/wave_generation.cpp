@@ -287,15 +287,16 @@ void parameter_aquisition(void)
                 int form;
                 int calib;
                 
-                // printf("RX = [%s]\n", line);
+                printf("RX = [%s]\n", line);
                 // printf("%d\n", sscanf(line, "%f,%d,%d", &freq, &ampl, &form) == 3);
 
-                if(sscanf(line, "%f,%d,%d", &freq, &ampl, &form) == 3)
+                if(sscanf(line, "%f,%f,%d", &freq, &ampl, &form) == 3)
                 {
                     // printf("Hello");
                     f1.f = freq;
                     f1.wave = static_cast<FORM>(form);
                     f1.ampl = ampl/4096;
+                    // printf("Frequency: %.2f Hz, Amplitude: %.2f\n", f1.f, f1.ampl);
                 }
                 else if(sscanf(line, "Calibration %d", &calib) == 1)
                 {
@@ -318,6 +319,9 @@ int main(void)
     // Subprocesses
     std::thread t0(parameter_aquisition);
     std::thread t1(drive_leds);
+
+    t0.detach();
+    t1.detach();
     
     // Communication to Python over static internal network
     sockaddr_in addr{};
@@ -353,19 +357,23 @@ int main(void)
 
     double phase = 0.0; // The critical running phase accumulator
     double current_frequency = f1.f;
-    int current_amplitude = f1.ampl;
+    double current_amplitude = f1.ampl;
+    FORM current_wave = f1.wave;
 
     while (true) {
         
         // Obtain target frequency and amplitude from 
-        // current_frequency = f1.f;
-        current_frequency = 1520;
+        current_frequency = f1.f;
+        // current_frequency = 1520.0;
         current_amplitude = f1.ampl;
+        current_wave = f1.wave;
+        // printf("Frequency: %.2f Hz, Amplitude: %.2f, Waveform: %d\n", current_frequency, current_amplitude, current_wave);
+
 
         // Fill the current block buffer
         for (int i = 0; i < BUFFER_SIZE; i++) {
             // Calculate the wave value using the current accumulated phase
-            switch (f1.wave) {
+            switch (current_wave) {
                 case SINE:
                     buffer[i] = (short)(sin(phase) * 32767.0 * current_amplitude);
                     break;
