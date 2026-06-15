@@ -187,8 +187,8 @@ void drive_leds(void)
             array[i] = static_cast<enum gpiod_line_value>((value >> i) & 1);
         }
         array[5] = static_cast<enum gpiod_line_value>((~value >> 5) & 1);
-        array[5] = static_cast<enum gpiod_line_value>(0);
-        array[4] = static_cast<enum gpiod_line_value>(1);
+        array[1] = static_cast<enum gpiod_line_value>(0);
+        array[0] = static_cast<enum gpiod_line_value>(1);
         
         // Write values using libgpiod v2.x API
         gpiod_line_request_set_value(gpio_request, gpio_offsets[0], array[5]);  // S0
