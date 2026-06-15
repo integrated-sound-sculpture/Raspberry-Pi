@@ -28,7 +28,7 @@ bool            flag          = true;                                     // Fla
 uint32_t        overflow      = 25000;                                    // Max Pulse Counter value
 int16_t         pulses        = 0;                                        // Pulse Counter value
 uint32_t        multPulses    = 0;                                        // Quantidade de overflows do contador PCNT
-uint32_t        sample_time   = 15000;                                    // sample time of 1 second to count pulses
+uint32_t        sample_time   = 20000;                                    // sample time of 1 second to count pulses
 float           frequency     = 0;                                        // frequency value
 char            buf[32];                                                  // Buffer
 
@@ -98,57 +98,20 @@ void init_frequencyMeter()
 }
 
 //----------------------------------------------------------------------------------------
-char *ultos_recursive(unsigned long val, char *s, unsigned radix, int pos) // Format an unsigned long (32 bits) into a string
-{
-  int c;
-  if (val >= radix)
-    s = ultos_recursive(val / radix, s, radix, pos + 1);
-  c = val % radix;
-  c += (c < 10 ? '0' : 'a' - 10);
-  *s++ = c;
-  if (pos % 3 == 0) *s++ = ',';
-  return s;
-}
-//----------------------------------------------------------------------------------------
-char *ltos(long val, char *s, int radix)                                  // Format an long (32 bits) into a string
-{
-  if (radix < 2 || radix > 36) {
-    s[0] = 0;
-  } else {
-    char *p = s;
-    if (radix == 10 && val < 0) {
-      val = -val;
-      *p++ = '-';
-    }
-    p = ultos_recursive(val, p, radix, 0) - 1;
-    *p = 0;
-  }
-  return s;
-}
-
-//---------------------------------------------------------------------------------
 
 int freq_measurement()
 {
   if (flag == true)                                                     // If count has ended
   {
     flag = false;                                                       // change flag to disable print
-    frequency = (pulses + (multPulses * overflow)) / 2.0  ;               // Calculation of frequency
-    
-    /*printf("Frequency : %s", (ltos(frequency* (1/0.015), buf, 10)));               // Print frequency with commas
-    printf(" Hz \n");                                                   // Print unity Hz
-    printf("pulses :%u", pulses);
-    printf("multPulses:  %u", multPulses);*/
-
-
+    frequency = (pulses + (multPulses * overflow)) / 2.0;               // Calculation of frequency
     multPulses = 0;                                                     // Clear overflow counter
-
 
     pcnt_counter_clear(PCNT_COUNT_UNIT);                                // Clear Pulse Counter
     esp_timer_start_once(timer_handle, sample_time);                    // Initialize High resolution timer (1 sec)
     gpio_set_level(OUTPUT_CONTROL_GPIO, 1);                             // Set enable PCNT count
   }
-return frequency * (1/0.015);
+  return frequency * (1/0.02);
 }
 
 
@@ -165,33 +128,100 @@ float convert_freq_lin(int in_min, int in_max, int out_min, int out_max, int fre
 //---------------------------------------------------------------------------------
 
 float convert_freq_log(int num_octaves, float min_freq, float freq, int in_max, int in_min){    //converting teh frequency using a logaritmic scale
-  Serial.println(freq);
 
   float x = (float)(freq-in_min)/(float)(in_max-in_min); //convert input freq to range between 0 and 1
   
-  Serial.println(x);
+  //Serial.println(x);
   float y = min_freq * pow(2,x*num_octaves);  //convert to logaritmic range 
   return y;
 }
 
 
+//---------------------------------------------------------------------------------
+
+// Converts a measured frequency into a hand distance.
+//
+// The formula is derived from the fitted sensor model:
+//
+//      f = A / sqrt(1 + B/d)
+//
+// Rearranging for distance d gives:
+//
+//      d = B / (A²/f² - 1)
+//
+// Parameters:
+//   A, B  -> calibration constants obtained from fitModel()
+//   freq  -> measured sensor frequency
+//
+// Returns:
+//   Estimated hand distance
+//
+
+float convert_hand_lin(float A, float B, int freq)
+{
+    float d = B / (std::pow(A, 2) / std::pow(freq, 2) - 1);
+    return d;
+}
 
 //---------------------------------------------------------------------------------
 
+// Fits the sensor model:
+//
+//      1/f² = (1/A²) + (B/A²)(1/d)
+//
+// This transforms the nonlinear relationship into a linear form:
+//
+//      Y = c + mX
+//
+// where:
+//
+//      X = 1/d
+//      Y = 1/f²
+//      c = 1/A²
+//      m = B/A²
+//
+// Linear regression is then used to determine m and c,
+// from which A and B are recovered.
+//
 
-float convert_hand_lin(int f_min, int f_max, int freq){        //converting the hand_position using a linear scale
-  float max_d = 30.0;
-  float min_d = 5.0;
+void fitModel(float d[], float f[], int n, double* A, double* B)
+{
+    // Variables used to compute least-squares regression
+    double sumX  = 0.0f;   // ΣX
+    double sumY  = 0.0f;   // ΣY
+    double sumXX = 0.0f;   // ΣX²
+    double sumXY = 0.0f;   // ΣXY
 
+    // Build regression sums from calibration points
+    for (int i = 0; i < n; i++)
+    {
+        // Ignore invalid calibration points
+        if (d[i] <= 0 || f[i] <= 0)
+            continue;
 
-  float B_1 = (min_d*std::pow(f_max, 2))/std::pow(f_min, 2)  - min_d;
-  float B_2 = 1 -  ( std::pow(f_max, 2) *  min_d)  /  ( std::pow(f_min, 2)  * max_d)  ;
-  float B = B_1/B_2;
+        // Linearized variables
+        float X = 1.0f / d[i];
+        float Y = 1.0f / (f[i] * f[i]);
 
-  float A_1 = 1.0 + B/max_d;
-  float A = f_max  * std::pow(A_1, 1.0/2.0) ;
+        // Accumulate regression sums
+        sumX  += X;
+        sumY  += Y;
+        sumXX += X * X;
+        sumXY += X * Y;
+    }
 
-  float d = B/(std::pow(A, 2)/std::pow(freq, 2)-1);
-  return d;
+    // Denominator used in least-squares formulas
+    float denom = n * sumXX - sumX * sumX;
+
+    // Calculate slope (m) of best-fit line
+    float m = (n * sumXY - sumX * sumY) / denom;
+
+    // Calculate intercept (c) of best-fit line
+    float c = (sumY - m * sumX) / n;
+
+    // Recover model parameter A
+    *A = 1.0f / sqrtf(c);
+
+    // Recover model parameter B
+    *B = m / c;
 }
-
