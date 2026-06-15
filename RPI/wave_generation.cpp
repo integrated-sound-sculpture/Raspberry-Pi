@@ -172,28 +172,29 @@ void drive_leds(void)
     uint8_t value = 0;
     int i;
     float f;
-    enum gpiod_line_value array[5];
+    enum gpiod_line_value array[6];
 
     while(true) {
         f = f1.f;
         value = (uint8_t) round(8 * log2(f / 130.8));
         if (value < 0) {
             value = 0;
-        } else if (value > 32) {
-            value = 32;
+        } else if (value > 31) {
+            value = 31;
         }
 
         for (i = 0; i < 5; i++) {
             array[i] = static_cast<enum gpiod_line_value>((value >> i) & 1);
         }
+        array[5] = static_cast<enum gpiod_line_value>((~value >> 5) & 1);
         
         // Write values using libgpiod v2.x API
-        gpiod_line_request_set_value(gpio_request, gpio_offsets[0], array[0]);  // S0
-        gpiod_line_request_set_value(gpio_request, gpio_offsets[1], array[1]);  // S1
-        gpiod_line_request_set_value(gpio_request, gpio_offsets[2], array[2]);  // S2
-        gpiod_line_request_set_value(gpio_request, gpio_offsets[3], array[3]);  // S3
-        gpiod_line_request_set_value(gpio_request, gpio_offsets[4], array[4]);  // E0
-        gpiod_line_request_set_value(gpio_request, gpio_offsets[5], static_cast<enum gpiod_line_value>(~array[4])); // E1 (inverted)
+        gpiod_line_request_set_value(gpio_request, gpio_offsets[0], array[5]);  // S0
+        gpiod_line_request_set_value(gpio_request, gpio_offsets[1], array[4]);  // S1
+        gpiod_line_request_set_value(gpio_request, gpio_offsets[2], array[3]);  // S2
+        gpiod_line_request_set_value(gpio_request, gpio_offsets[3], array[2]);  // S3
+        gpiod_line_request_set_value(gpio_request, gpio_offsets[4], array[1]);  // E0
+        gpiod_line_request_set_value(gpio_request, gpio_offsets[5], array[0]); // E1 (inverted)
 
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
