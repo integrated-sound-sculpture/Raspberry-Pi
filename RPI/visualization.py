@@ -6,11 +6,11 @@ from scipy.io import wavfile
 import numpy as np
 import pyqtgraph as pg
 import sys
-import sounddevice as sd
+# import sounddevice as sd
 import threading
 from scipy.fft import fft, fftfreq
 from scipy.signal import spectrogram
-import soundfile as sf
+# import soundfile as sf
 import socket
 from pyqtgraph.Qt import QtCore, QtWidgets, QtGui
 import time as tm
@@ -20,11 +20,11 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind(("127.0.0.1", 8080))
 sock.setblocking(False)
 
-sample_rate = 44100
+sample_rate = 48000
 
 app = QtWidgets.QApplication(sys.argv)                                          #start the application                                    #normalize samples to -1.0 to 1.0 
 
-chunk_size = 4096                                             
+chunk_size = 2048                                           
 time = np.arange(chunk_size) / sample_rate                                      #time array for one chunk, used for plotting the waveform
 chunk = np.zeros(chunk_size)                                                    #audio data chunk
 current_chunk = chunk.copy()                                                    #copy of the current chunk, used as a register
