@@ -189,13 +189,25 @@ def update():                                                       #update func
     global waterfall_buffer, chunk, p1_ymax, p2_ymax, p3_fft_ymax, last_selector
     start = tm.perf_counter()
 
-    data, addr = sock.recvfrom(chunk_size * 2)
+    data = None
+    try:
+        while True:
+            data, addr = sock.recvfrom(chunk_size * 2)
+    except BlockingIOError:
+        pass
+
+    if data is None:
+        return
+            
     chunk = np.frombuffer(data, dtype=np.int16)
 
     view_selector = chunk[0]
     samples = data[1:]
 
     chunk = np.frombuffer(chunk, dtype=np.int16)
+    if len(samples) < chunk_size:
+        return
+
     chunk = chunk / np.max(np.abs(chunk))
 
     windowed_chunk = chunk * hann_window
@@ -267,10 +279,10 @@ def update():                                                       #update func
     end = tm.perf_counter()
     processing_time = (end-start)*1000
     p1.setTitle(f'Delay: {processing_time:.2f}ms')
+    QtCore.QTimer.singleShot(5, update)
+
         
-timer = QtCore.QTimer()                                             #timer to call the update function every 50 ms
-timer.timeout.connect(update)
-timer.start(20)
+QtCore.QTimer.singleShot(0, update)
 
 win.showMaximized()                                                 #show the window fullscreen
 win.show()
