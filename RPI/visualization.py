@@ -13,6 +13,7 @@ from scipy.signal import spectrogram
 import soundfile as sf
 import socket
 from pyqtgraph.Qt import QtCore, QtWidgets, QtGui
+import time as tm
 
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -186,6 +187,7 @@ smooth_midi = [69.0]
 
 def update():                                                       #update function for the plots, called by a timer
     global waterfall_buffer, chunk, p1_ymax, p2_ymax, p3_fft_ymax, last_selector
+    start = tm.perf_counter()
 
     data, addr = sock.recvfrom(chunk_size * 2)
     chunk = np.frombuffer(data, dtype=np.int16)
@@ -261,8 +263,11 @@ def update():                                                       #update func
                 black_key_items[center].setBrush(pg.mkBrush('r'))
             note_name = note_labels[center % 12]                    #get the name of the detected note
             octave = center // 12 - 1
-            p4.setTitle(f'Detected Note: {note_name}{octave} ({peak_freq:.1f} Hz) Amplitude: {peak_magnitude:.2f}')  #set the title to show the detected note and its frequency and amplitude
-
+            p4.setTitle(f'Detected Note: {note_name}{octave}')  #set the title to show the detected note and its frequency and amplitude
+    end = tm.perf_counter()
+    processing_time = (end-start)*1000
+    p1.setTitle(f'Delay: {processing_time:.2f}ms')
+        
 timer = QtCore.QTimer()                                             #timer to call the update function every 50 ms
 timer.timeout.connect(update)
 timer.start(20)
