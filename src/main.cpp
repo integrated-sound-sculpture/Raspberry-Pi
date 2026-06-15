@@ -1,69 +1,172 @@
 #include <Arduino.h>
-
 #include <cmath>
-
 #include <pulse_cnt.h>
-//#include <sine_gen.h>
 #include <input_control.h>
+#include <iostream>
+#include <chrono>
 
-
+// UART2 pin definitions for communication with microprocessor
 #define RXD2 16
 #define TXD2 17
 
-int freq_high = 450000;
-int freq_low = 400000;
-int in_freq;  //input frequency
-float freq;
-float d;
-int amplitude;
+// Calibration constants
+double A;
+double B;
 
-bool auto_tune;   //auto tune select
+// Moving average filter variables
+float samples[100];   // Buffer storing last 100 frequency measurements
+int indx = 0;         // Current index in circular buffer
+float sum = 0;        // Running sum of all samples
+
+// Measurement variables
+int in_freq;          // Raw input frequency from sensor
+float freq;           // Output audio frequency
+float d;              // Calculated hand distance
+int amplitude;        // Volume/amplitude value from potentiometer
+
+// Auto-tune selection flag
+bool auto_tune;
 
 void setup()
 {
+    // Initialize serial monitor
     Serial.begin(115200);
-    Serial2.begin(115200, SERIAL_8N1, RXD2, TXD2); //init UART
 
-    dacWrite(25, 128);
+    // Initialize UART2 communication
+    Serial2.begin(115200, SERIAL_8N1, RXD2, TXD2);
+
+    // Initialize frequency measurement hardware
+    init_frequencyMeter();
+
+    // Initialize buttons, switches and potentiometers
+    init_input_control();
+
+    Serial.println("\nPress the button to input the frequency at 5 cm\n");
+
+    // Number of calibration points
+    int n = 4;
+
+    // Known distances used for calibration (meters)
+    float d[] = {0.05, 0.10, 0.20, 0.30};
+
+    // Array to store measured frequencies
+    float f[n];
+
+    // Measure frequencies at the known distances
+    freq_calibration2(f, n);
 
 
-    init_frequencyMeter();   //initialize the pulse counter
-    init_input_control();    //initialize al the input pins for buttons/sliders
 
-    Serial.println("\nPress the button to input the highest frequency\n");
+    // Fit the frequency-distance model:
+    fitModel(d, f, n, &A, &B);
 
-    //freq_calibration(&freq_high, &freq_low);     //calibrate the high and low frequencies
+    Serial.println("\nThe curve has been fitted A and B are:");
+    Serial.println(A, 6);
+    Serial.println(B, 6);
 
-    Serial.println("\nSetup done");               
+    Serial.println("\nSetup done");
     Serial.println("STARTING WITH MEASUREMENTS");
+
     delay(1500);
 }
 
 void loop()
 {
-    in_freq = freq_measurement();       //measure the input frequency
-    Serial.print("input freq: ");
+    // Measure frequency from sensor
+    in_freq = freq_measurement();
+    Serial.print(in_freq);
 
-    in_freq = 425000;
-    d = convert_hand_lin(freq_low,freq_high,in_freq);
-    Serial.println(d);
-    freq = convert_freq_log(3,65.406, d, 30, 5);   //convert the input frequency to audible frequencies
+    //--------------------------------------------------
+    // Moving average filter (100 samples)
+    //--------------------------------------------------
 
-    amplitude = pot_meter();               //measure the amplitude using a potmeter
-    amplitude = 3000;
+    // Remove oldest sample from running sum
+    sum -= samples[indx];
 
-    auto_tune = autotune_select();         //look if auto tune is selected
-    if(auto_tune){
-        freq = autotune(freq);   //tune the frequency to perfect notes
+    // Store new sample
+    samples[indx] = in_freq;
+
+    // Move to next position in circular buffer
+    indx = (indx + 1) % 100;
+
+    // Add new sample to running sum
+    sum += in_freq;
+
+    // Compute filtered frequency
+    in_freq = sum / 100;
+
+    Serial.print("               ");
+    Serial.print(in_freq);
+
+    //--------------------------------------------------
+    // Convert frequency to hand distance
+    //--------------------------------------------------
+
+    d = convert_hand_lin(A, B, in_freq);
+
+    //--------------------------------------------------
+    // Convert distance to audible frequency
+    //--------------------------------------------------
+    /*
+     * Parameters:
+     * 4      = octave range
+     * 130.8  = lowest note frequency (C3)
+     * d      = measured hand distance
+     * 30     = maximum distance (cm)
+     * 5      = minimum distance (cm)
+     */
+    freq = convert_freq_log(4, 130.8, d, 30, 5);
+
+    //--------------------------------------------------
+    // Read volume control potentiometer
+    //--------------------------------------------------
+    amplitude = pot_meter();
+
+    //--------------------------------------------------
+    // Auto-tune option
+    //--------------------------------------------------
+    auto_tune = autotune_select();
+
+    if (auto_tune)
+    {
+        // Snap frequency to nearest musical note
+        freq = autotune(freq);
     }
-   
-    int waveform = waveform_select(); // 0,1 or 2
 
+    //--------------------------------------------------
+    // Read waveform selection
+    //--------------------------------------------------
+    /*
+     * Possible values:
+     * 0 = Sine
+     * 1 = Square
+     * 2 = Sawtooth (depending on implementation)
+     */
+    int waveform = waveform_select();
 
-    String UART_data = String(freq) + "," + String(amplitude) + "," + String(waveform) + "\n";    //make a UART package
-    Serial2.println(UART_data);         //send data via UART connection
-   
-    Serial.println(UART_data);   
+    //--------------------------------------------------
+    // Read visualization mode
+    //--------------------------------------------------
+    int visualization = visualization_select();
 
-    delay(300);
+    //--------------------------------------------------
+    // Create UART packet
+    //--------------------------------------------------
+    /*
+     * Format:
+     * frequency,amplitude,waveform
+     *
+     * Example:
+     * 440.00,128,0
+     */
+    String UART_data =
+        String(freq) + "," +
+        String(amplitude) + "," +
+        String(waveform) + "\n";
+
+    // Send packet to connected device
+    Serial2.println(UART_data);
+
+    Serial.print("                ");
+    Serial.println(UART_data);
 }
