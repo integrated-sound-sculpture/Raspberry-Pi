@@ -59,6 +59,7 @@
 #define BUFFER_SIZE 2048                // Smaller buffers provide faster frequency updates
 
 int sock = socket(AF_INET, SOCK_DGRAM, 0);
+using std::chrono::high_resolution_clock;
 
 // GPIO chip and request for libgpiod v2.x
 struct gpiod_chip *gpiod_chip_handle = NULL;
@@ -287,7 +288,7 @@ void parameter_aquisition(void)
                 int form;
                 int calib;
                 
-                printf("RX = [%s]\n", line);
+                // printf("RX = [%s]\n", line);
                 // printf("%d\n", sscanf(line, "%f,%d,%d", &freq, &ampl, &form) == 3);
 
                 if(sscanf(line, "%f,%f,%d", &freq, &ampl, &form) == 3)
@@ -358,17 +359,23 @@ int main(void)
     double current_frequency = f1.f;
     double current_amplitude = f1.ampl;
     FORM current_wave = f1.wave;
+    int visualisation_select = 1;
+    duration<double, std::milli> ms_double;
 
     while (true) {
         
+        auto t1 = high_resolution_clock::now();
         // Obtain target frequency and amplitude from 
         current_frequency = f1.f;
         // current_frequency = 1520.0;
         current_amplitude = f1.ampl;
         current_wave = f1.wave;
         // printf("Frequency: %.2f Hz, Amplitude: %.2f, Waveform: %d\n", current_frequency, current_amplitude, current_wave);
+        auto t2 = high_resolution_clock::now();
+        ms_double = t2 - t1;
+        printf("Parameter aquisition: %f", ms_double);
 
-
+        auto t1 = high_resolution_clock::now();
         // Fill the current block buffer
         for (int i = 0; i < BUFFER_SIZE; i++) {
             // Calculate the wave value using the current accumulated phase
@@ -405,6 +412,11 @@ int main(void)
                 phase -= 2.0 * M_PI;
             }
         }
+        auto t2 = high_resolution_clock::now();
+        ms_double = t2 - t1;
+        printf("Wave generation: %f", ms_double);
+
+        auto t1 = high_resolution_clock::now();
 
         // Send frames to ALSA pipeline
         snd_pcm_sframes_t frames = snd_pcm_writei(handle, buffer, BUFFER_SIZE);
@@ -417,12 +429,24 @@ int main(void)
             break;
         }
 
+        auto t2 = high_resolution_clock::now();
+        ms_double = t2 - t1;
+        printf("Send audio buffer: %f", ms_double);
+
+        auto t1 = high_resolution_clock::now();
+
+        buffer[0] = visualisation_select;
+
         sendto( sock,
                 buffer,
                 sizeof(buffer),
                 0,
                 (sockaddr*)&addr,
                 sizeof(addr));
+
+        auto t2 = high_resolution_clock::now();
+        ms_double = t2 - t1;
+        printf("Send to visualisation: %f", ms_double);
     }
     
     snd_pcm_drain(handle);

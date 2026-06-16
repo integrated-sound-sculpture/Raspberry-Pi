@@ -16,23 +16,23 @@ from pyqtgraph.Qt import QtCore, QtWidgets, QtGui
 import time as tm
 
 
-sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)                         #UART connection
 sock.bind(("127.0.0.1", 8080))
 sock.setblocking(False)
 
 sample_rate = 48000
 
-app = QtWidgets.QApplication(sys.argv)                                          #start the application                                    #normalize samples to -1.0 to 1.0 
+app = QtWidgets.QApplication(sys.argv)                                          #start the application                       
 
 chunk_size = 2048                                           
 time = np.arange(chunk_size) / sample_rate                                      #time array for one chunk, used for plotting the waveform
 chunk = np.zeros(chunk_size)                                                    #audio data chunk
 current_chunk = chunk.copy()                                                    #copy of the current chunk, used as a register
 
-hann_window = np.hanning(chunk_size)                                                   #hann window for the spectrogram, to reduce spectral leakage
-windowed_chunk = chunk * hann_window                                                   #apply the window to the chunk before performing the FFT
+hann_window = np.hanning(chunk_size)                                            #hann window for the spectrogram, to reduce spectral leakage
+windowed_chunk = chunk * hann_window                                            #apply the window to the chunk before performing the FFT
 
-fft_values = np.abs(np.array(fft(windowed_chunk)))[:chunk_size//2]                       #FFT values for the chunk // 2 to only take positive frequencies
+fft_values = np.abs(np.array(fft(windowed_chunk)))[:chunk_size//2]              #FFT values for the chunk // 2 to only take positive frequencies
 fft_freqs = fftfreq(chunk_size, 1/sample_rate)[:chunk_size//2]                  #frequency corresponding to fft_values
 
 win = QtWidgets.QWidget()                                                       #window setup
@@ -41,7 +41,7 @@ layout = QtWidgets.QVBoxLayout()
 win.setLayout(layout)
 
 selector = QtWidgets.QComboBox()                                                #create dropdown selector
-selector.addItems(['All', 'Sine Wave', 'FFT', 'Spectrogram','Notes'])
+selector.addItems(['All', 'Waveform plot', 'FFT', 'Frequency plot','Piano'])
 layout.addWidget(selector)
 last_selector = 0
 
@@ -59,57 +59,58 @@ tick_positions = [(np.log10(f), f'{f} Hz') for f in freq_labels]                
 tick_positions_log = [(int(np.argmin(np.abs(log_freqs - f))), f'{f}') for f in freq_labels]  #afstand van fft_freqs tot de frequenties
 
 note_labels = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] #Note labels, for some reason it starts with C
-midi_min = 21 
-midi_max = 108
-midi_freqs = 440 * 2 ** ((np.arange(midi_min, midi_max + 1) - 69) / 12)  #freq die bij elke midi toon hoort
+midi_min = 21                                                                   #Minimal MIDI value of a piano
+midi_max = 108                                                                  #Maximal MIDI value of a piano
+midi_freqs = 440 * 2 ** ((np.arange(midi_min, midi_max + 1) - 69) / 12)         #freq die bij elke midi toon hoort
 
-amplitude_threshold = 5  #drempel voor het tonen van de gedetecteerde noot, om ruis te voorkomen
+amplitude_threshold = 5                                                         #threshold to suppress noise
 
-p1 = pg.PlotWidget(title= 'sine')                                   #plot waveform
+p1 = pg.PlotWidget(title= 'Waveform plot')                                               #plot waveform
 p1.setLabel('bottom', 'Time', units='s')
 p1.setLabel('left', 'Amplitude')
-graph1 = p1.plot(time.flatten(), chunk.astype(float).flatten())     #flatten to use with pyqtgraph
+graph1 = p1.plot(time.flatten(), chunk.astype(float).flatten())                 #flatten to use with pyqtgraph
 p1.setXRange(0,time[-1])
 p1.enableAutoRange(axis='x', enable=False)
 layout.addWidget(p1)
 
-p2 = pg.PlotWidget(title= 'FFT')                                    #plot FFT     
+p2 = pg.PlotWidget(title= 'FFT')                                                #plot FFT     
 p2.setLabel('bottom', 'Frequency', units='Hz')
 p2.setLabel('left', 'Magnitude')
 graph2 = p2.plot(fft_freqs.flatten(), fft_values.flatten())
-p2.setXRange(20, sample_rate//2)                                              #limit x-axis to Nyquist frequency
-p2.setLogMode(x=True, y=False)                                                              #set logarithmic x-axis
-tick_positions = [(np.log10(f), f'{f} Hz') for f in freq_labels]  #afstand van fft_freqs tot de frequenties
+p2.setXRange(20, sample_rate//2)                                                #limit x-axis to Nyquist frequency
+p2.setLogMode(x=True, y=False)                                                  #set logarithmic x-axis
+tick_positions = [(np.log10(f), f'{f} Hz') for f in freq_labels]                #distance from fft_freqs to frequencies
 p2.hide()
 layout.addWidget(p2)
 
-p3_packet = QtWidgets.QWidget()                                         #maak een pakket van zowel fft als spetrogram
-p3_layout = QtWidgets.QVBoxLayout()                                     #layout voor plots onder elkaar
-p3_packet.setLayout(p3_layout)                                          #put the layout in the packet
+p3_packet = QtWidgets.QWidget()                                                 #create a packet for the plotting
+p3_layout = QtWidgets.QVBoxLayout()                                             #layout voor plots onder elkaar
+p3_packet.setLayout(p3_layout)                                                  #put the layout in the packet
 
-p3_fft = pg.PlotWidget(title= 'FFT')                                    #plot FFT of the packet
+p3_fft = pg.PlotWidget(title= 'Frequency plot')                                            #plot FFT of the packet
 p3_fft.setLabel('left', 'Magnitude')
-p3_fft.getAxis('left').setWidth(60)                                     #a constant width for y axis to ensure both y axis are the same
-graph3_fft = p3_fft.plot(fft_freqs.flatten(), fft_values.flatten())     #flatten to use with pyqtgraph
-p3_fft.getAxis('bottom').setStyle(showValues=False)                         #hide x-axis labels for the fft plot in the packet becasue they are shown in the spectrogram
-p3_fft.setYRange(0, p3_fft_ymax)                                              #initial y-axis range
+p3_fft.getAxis('left').setWidth(60)                                             #a constant width for y axis to ensure both y axis are on the same place
+graph3_fft = p3_fft.plot(fft_freqs.flatten(), fft_values.flatten())             #flatten to use with pyqtgraph
+p3_fft.getAxis('bottom').setStyle(showValues=False)                             #hide x-axis labels for the fft plot in the packet becasue they are shown in the spectrogram
+p3_fft.setYRange(0, p3_fft_ymax)                                                #initial y-axis range
 p3_layout.addWidget(p3_fft)
 
-p3 = pg.PlotWidget()                                                    #plot spectrogram
+p3 = pg.PlotWidget()                                                            #plot spectrogram
 p3.setLabel('left', 'Time (frames)')
 p3.setLabel('bottom', 'Frequency', units='Hz')
 p3.getAxis('left').setWidth(60)
 graph3 = pg.ImageItem()
 p3.addItem(graph3)
-graph3.setColorMap('inferno')                                                 #colormap for the spectrogram, other option is viridis
+graph3.setColorMap('inferno')                                                   #colormap for the spectrogram, other option is viridis
 
-p3.getAxis('bottom').setTicks([tick_positions_log])                       #set log frequency labels on the x-axis
+p3.getAxis('bottom').setTicks([tick_positions_log])                             #set log frequency labels on the x-axis
 p3_layout.addWidget(p3)
 layout.addWidget(p3_packet)
 
-p3_fft.setXLink(p3)                                                     #link the axis together
+p3_fft.setXLink(p3)                                                             #link the axis together
+p3_packet.hide()
 
-p4 = pg.PlotWidget(title= 'Notes')                                  #plot note
+p4 = pg.PlotWidget(title= 'Notes')                                              #plot note
 p4.setAspectLocked(False)
 p4.setYRange(0, 1)
 p4.setXRange(0, 88)
@@ -146,7 +147,7 @@ for midi in range(midi_min, midi_max + 1):                          #loop throug
         prev_white_x = midi - 1
         if prev_white_x in white_positions:
             x = white_positions[prev_white_x] + 0.6
-            rect = QtWidgets.QGraphicsRectItem(x, 0.4, 0.6, 0.6)
+            rect = QtWidgets.QGraphicsRectItem(x, 0.4, 0.6, 0.6)    #offset of black key
             rect.setBrush(pg.mkBrush('k')  )
             rect.setPen(pg.mkPen('k'))
             p4.addItem(rect)
@@ -198,14 +199,12 @@ def update():                                                       #update func
 
     if data is None:
         return
-            
-    chunk = np.frombuffer(data, dtype=np.int16)
 
-    view_selector = chunk[0]
-    samples = data[1:]
 
-    chunk = np.frombuffer(chunk, dtype=np.int16)
-    if len(samples) < chunk_size:
+    view_selector = data[0]    
+    chunk = np.frombuffer(data[1:], dtype=np.int16)
+
+    if len(chunk) < chunk_size:
         return
 
     chunk = chunk / np.max(np.abs(chunk))
@@ -245,9 +244,9 @@ def update():                                                       #update func
     if np.any(valid_freq):
         valid_fft = fft_values[valid_freq]
         valid_ffreqs = fft_freqs[valid_freq]
-        peak_idx = np.argmax(valid_fft)                #find the index of the peak in the FFT
+        peak_idx = np.argmax(valid_fft)                             #find the index of the peak in the FFT
         peak_freq = fft_freqs[valid_freq][peak_idx]                 #get the corresponding frequency
-        peak_magnitude = valid_fft[peak_idx]           #get the magnitude of the peak
+        peak_magnitude = valid_fft[peak_idx]                        #get the magnitude of the peak
         
         if 0 < peak_idx < len(valid_fft) -1:
             left = valid_fft[peak_idx-1]
@@ -275,7 +274,7 @@ def update():                                                       #update func
                 black_key_items[center].setBrush(pg.mkBrush('r'))
             note_name = note_labels[center % 12]                    #get the name of the detected note
             octave = center // 12 - 1
-            p4.setTitle(f'Detected Note: {note_name}{octave}')  #set the title to show the detected note and its frequency and amplitude
+            p4.setTitle(f'Detected Note: {note_name}{octave}')      #set the title to show the detected note and its frequency and amplitude
     end = tm.perf_counter()
     processing_time = (end-start)*1000
     p1.setTitle(f'Delay: {processing_time:.2f}ms')
