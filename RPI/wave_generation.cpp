@@ -51,6 +51,15 @@
 #define E0 25
 #define E1 24
 
+#define PORT        8080 
+#define MAXLINE     1024 
+
+#define WAVE_FORM BLOCK
+#define SAMPLE_RATE 48000
+#define BUFFER_SIZE 2048                // Smaller buffers provide faster frequency updates
+
+int sock = socket(AF_INET, SOCK_DGRAM, 0);
+
 // GPIO chip and request for libgpiod v2.x
 struct gpiod_chip *gpiod_chip_handle = NULL;
 struct gpiod_line_request *gpio_request = NULL;
@@ -151,14 +160,6 @@ typedef struct settings{
     float ampl;
 }settings;
 
-#define PORT        8080 
-#define MAXLINE     1024 
-
-#define WAVE_FORM BLOCK
-#define SAMPLE_RATE 48000
-#define TOTAL_FRAMES (SAMPLE_RATE * 4) // Play for 5 seconds total
-#define BUFFER_SIZE 2048                // Smaller buffers provide faster frequency updates
-
 short buffer[BUFFER_SIZE];
 
 settings f1{
@@ -199,8 +200,6 @@ void drive_leds(void)
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 }
-
-int sock = socket(AF_INET, SOCK_DGRAM, 0);
 
 //-------------------------
 //----- SETUP USART 0 -----
@@ -305,7 +304,6 @@ void parameter_aquisition(void)
                 }
             }
         }
-        //std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 }
 
