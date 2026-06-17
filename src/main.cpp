@@ -55,6 +55,7 @@ void setup()
     // Measure frequencies at the known distances
     freq_calibration2(f, n);
 
+    //float f[] = {520000,560000,600000,610000};
 
 
     // Fit the frequency-distance model:
@@ -115,7 +116,7 @@ void loop()
      * 30     = maximum distance (cm)
      * 5      = minimum distance (cm)
      */
-    freq = convert_freq_log(4, 130.8, d, 30, 5);
+    freq = convert_freq_log(4, 130.8, d, 0.30, 0.05);
 
     //--------------------------------------------------
     // Read volume control potentiometer
@@ -169,4 +170,6 @@ void loop()
 
     Serial.print("                ");
     Serial.println(UART_data);
+    delay(2);
+
 }

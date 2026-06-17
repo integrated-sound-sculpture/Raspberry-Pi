@@ -21,6 +21,4 @@ int visualization_select();
 void freq_calibration2(float freq[], int n);
 
 
-
-
 #endif

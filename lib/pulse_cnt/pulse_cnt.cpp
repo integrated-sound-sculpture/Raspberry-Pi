@@ -127,7 +127,7 @@ float convert_freq_lin(int in_min, int in_max, int out_min, int out_max, int fre
 
 //---------------------------------------------------------------------------------
 
-float convert_freq_log(int num_octaves, float min_freq, float freq, int in_max, int in_min){    //converting teh frequency using a logaritmic scale
+float convert_freq_log(int num_octaves, float min_freq, float freq, float in_max, float in_min){    //converting teh frequency using a logaritmic scale
 
   float x = (float)(freq-in_min)/(float)(in_max-in_min); //convert input freq to range between 0 and 1
   
