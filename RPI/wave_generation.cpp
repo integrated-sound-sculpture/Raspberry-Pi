@@ -422,7 +422,9 @@ int main(void)
     double current_amplitude = f1.ampl;
     FORM current_wave = f1.wave;
     int visualisation_select = f1.vis_sett;
-    duration<double, std::milli> ms_double;
+    std::chrono::duration<double, std::milli> ms_double;
+    auto t1t = high_resolution_clock::now();
+    auto t2t = high_resolution_clock::now();
 
     bool start = true;
 
@@ -447,7 +449,7 @@ int main(void)
 
     while (true) {
         
-        auto t1 = high_resolution_clock::now();
+        t1t = high_resolution_clock::now();
         // Obtain target frequency and amplitude from 
         current_wave = f1.wave;
         if (current_wave = FREEBIRD) {
@@ -465,11 +467,11 @@ int main(void)
         current_amplitude = f1.ampl;
         visualisation_select = f1.vis_sett;
         // printf("Frequency: %.2f Hz, Amplitude: %.2f, Waveform: %d\n", current_frequency, current_amplitude, current_wave);
-        auto t2 = high_resolution_clock::now();
-        ms_double = t2 - t1;
-        printf("Parameter aquisition: %f", ms_double);
+        t2t = high_resolution_clock::now();
+        ms_double = t2t - t1t;
+        printf("Parameter aquisition: %f\n", ms_double.count());
 
-        auto t1 = high_resolution_clock::now();
+        t1t = high_resolution_clock::now();
         // Fill the current block buffer
         for (int i = 0; i < BUFFER_SIZE; i++) {
             if (current_wave = FREEBIRD) {
@@ -520,11 +522,11 @@ int main(void)
                 }
             }
         }
-        auto t2 = high_resolution_clock::now();
-        ms_double = t2 - t1;
-        printf("Wave generation: %f", ms_double);
+        t2t = high_resolution_clock::now();
+        ms_double = t2t - t1t;
+        printf("Wave generation: %f\n", ms_double.count());
 
-        auto t1 = high_resolution_clock::now();
+        t1t = high_resolution_clock::now();
 
         // Send frames to ALSA pipeline
         snd_pcm_sframes_t frames = snd_pcm_writei(handle, buffer, BUFFER_SIZE);
@@ -537,11 +539,11 @@ int main(void)
             break;
         }
 
-        auto t2 = high_resolution_clock::now();
-        ms_double = t2 - t1;
-        printf("Send audio buffer: %f", ms_double);
+        t2t = high_resolution_clock::now();
+        ms_double = t2t - t1t;
+        printf("Send audio buffer: %f\n", ms_double.count());
 
-        auto t1 = high_resolution_clock::now();
+        t1t = high_resolution_clock::now();
 
         buffer[0] = visualisation_select;
 
@@ -552,9 +554,9 @@ int main(void)
                 (sockaddr*)&addr,
                 sizeof(addr));
 
-        auto t2 = high_resolution_clock::now();
-        ms_double = t2 - t1;
-        printf("Send to visualisation: %f", ms_double);
+        t2t = high_resolution_clock::now();
+        ms_double = t2t - t1t;
+        printf("Send to visualisation: %f\n\n", ms_double.count());
     }
     
     snd_pcm_drain(handle);
