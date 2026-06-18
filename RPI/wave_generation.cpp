@@ -125,7 +125,7 @@ void init_gpio(void)
 
     // Add all pins with these settings
     if (gpiod_line_config_add_line_settings(line_cfg, gpio_offsets, 7, settings) < 0) {
-        perror("gpiod_line_config_add_line_settings")
+        perror("gpiod_line_config_add_line_settings");
         gpiod_line_settings_free(settings);
         gpiod_line_config_free(line_cfg);
         gpiod_chip_close(gpiod_chip_handle);
@@ -433,7 +433,7 @@ int main(void)
 
     int k = 0;
     std::string notes[] = {"C#3", "D3"};
-    double interval_ms = [3.0, 3.0]
+    double interval_ms[] = {3.0, 3.0};
     int size_notes = 2;
 
     float *song = new float[size_notes];
