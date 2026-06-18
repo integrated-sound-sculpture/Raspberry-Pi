@@ -50,6 +50,7 @@
 #define S3 23
 #define E0 25
 #define E1 24
+#define SD 26 //Shutdown pin
 
 #define PORT        8080 
 #define MAXLINE     1024 
@@ -58,13 +59,40 @@
 #define SAMPLE_RATE 48000
 #define BUFFER_SIZE 2048                // Smaller buffers provide faster frequency updates
 
+
+typedef enum{
+    SINE,
+    BLOCK,
+    TRIANGLE,
+    FREEBIRD
+}FORM;
+
+typedef struct settings{
+    // std::atomic<float> f;
+    // std::atomic<FORM> wave;
+    // std::atomic<float> ampl;
+    float f;
+    FORM wave;
+    float ampl;
+    uint8_t vis_sett;
+}settings;
+
+short buffer[BUFFER_SIZE];
+
+settings f1{
+    440.0f,
+    WAVE_FORM,
+    1.0f,
+    1
+};
+
 int sock = socket(AF_INET, SOCK_DGRAM, 0);
 using std::chrono::high_resolution_clock;
 
 // GPIO chip and request for libgpiod v2.x
 struct gpiod_chip *gpiod_chip_handle = NULL;
 struct gpiod_line_request *gpio_request = NULL;
-unsigned int gpio_offsets[6] = {S0, S1, S2, S3, E0, E1};
+unsigned int gpio_offsets[7] = {S0, S1, S2, S3, E0, E1, SD};
 
 void init_gpio(void)
 {
@@ -96,8 +124,8 @@ void init_gpio(void)
     // gpiod_line_settings_set_output_value(settings, GPIOD_LINE_VALUE_ACTIVE);
 
     // Add all pins with these settings
-    if (gpiod_line_config_add_line_settings(line_cfg, gpio_offsets, 6, settings) < 0) {
-        perror("gpiod_line_config_add_line_settings");
+    if (gpiod_line_config_add_line_settings(line_cfg, gpio_offsets, 7, settings) < 0) {
+        perror("gpiod_line_config_add_line_settings")
         gpiod_line_settings_free(settings);
         gpiod_line_config_free(line_cfg);
         gpiod_chip_close(gpiod_chip_handle);
@@ -145,29 +173,6 @@ void cleanup_gpio(void)
         gpiod_chip_close(gpiod_chip_handle);
     }
 }
-
-typedef enum{
-    SINE,
-    BLOCK,
-    TRIANGLE
-}FORM;
-
-typedef struct settings{
-    // std::atomic<float> f;
-    // std::atomic<FORM> wave;
-    // std::atomic<float> ampl;
-    float f;
-    FORM wave;
-    float ampl;
-}settings;
-
-short buffer[BUFFER_SIZE];
-
-settings f1{
-    440.0f,
-    WAVE_FORM,
-    1.0f
-};
 
 void drive_leds(void)
 {
@@ -286,17 +291,19 @@ void parameter_aquisition(void)
                 float freq;
                 float ampl;
                 int form;
+                int setting;
                 int calib;
                 
                 // printf("RX = [%s]\n", line);
                 // printf("%d\n", sscanf(line, "%f,%d,%d", &freq, &ampl, &form) == 3);
 
-                if(sscanf(line, "%f,%f,%d", &freq, &ampl, &form) == 3)
+                if(sscanf(line, "%f,%f,%d,%d", &freq, &ampl, &form, &setting) == 4)
                 {
                     // printf("Hello");
                     f1.f = freq;
                     f1.wave = static_cast<FORM>(form);
                     f1.ampl = ampl/4096;
+                    f1.vis_sett = setting;
                     // printf("Frequency: %.2f Hz, Amplitude: %.2f\n", f1.f, f1.ampl);
                 }
                 else if(sscanf(line, "Calibration %d", &calib) == 1)
@@ -308,8 +315,64 @@ void parameter_aquisition(void)
     }
 }
 
+void make_song_array(float *song, std::string *notes, int len_notes)
+{
+    int octave;
+    int sharp;
+    int n;
+    char last;
+
+    float super;
+    float f0 = 130.8;
+
+    for (int i=0; i < len_notes; i++)
+    {
+        if (notes[i].find("#") != std::string::npos) {
+                sharp = 1;
+        }
+        else {
+            sharp = 0;
+        }
+
+        last = notes[i].back();
+        octave = last - '0';
+
+        if (notes[i].find("C") != std::string::npos) {
+            n = 0;
+        }
+        else if (notes[i].find("D") != std::string::npos) {
+            n = 2;
+        }
+        else if (notes[i].find("E") != std::string::npos) {
+            n = 4;
+        }
+        else if (notes[i].find("F") != std::string::npos) {
+            n = 5;
+        }
+        else if (notes[i].find("G") != std::string::npos) {
+            n = 7;
+        }
+        else if (notes[i].find("A") != std::string::npos) {
+            n = 9;
+        }
+        else if (notes[i].find("B") != std::string::npos) {
+            n = 11;
+        }
+        else {
+            n = 0;
+        }
+
+        super = (float) n + sharp + 12 * (octave - 3);
+        song[i] = f0 * pow(2, super / 12);
+    }
+}
+
 int main(void)
 {
+    // Keep speaker in shutdown until setup is done
+    gpiod_line_value sd_pin_val = static_cast<enum gpiod_line_value>(0);
+    gpiod_line_request_set_value(gpio_request, gpio_offsets[6], sd_pin_val);
+
     // UART
     set_interface_attribs();
 
@@ -328,7 +391,6 @@ int main(void)
     addr.sin_family = AF_INET;
     addr.sin_port = htons(PORT);
     addr.sin_addr.s_addr = inet_addr("127.0.0.1");
-
 
     // Audio
     int err;
@@ -359,17 +421,49 @@ int main(void)
     double current_frequency = f1.f;
     double current_amplitude = f1.ampl;
     FORM current_wave = f1.wave;
-    int visualisation_select = 1;
+    int visualisation_select = f1.vis_sett;
     duration<double, std::milli> ms_double;
+
+    bool start = true;
+
+    double t = 0.0;
+    double t_last = 0.0;
+
+    int k = 0;
+    std::string notes[] = {"C#3", "D3"};
+    double interval_ms = [3.0, 3.0]
+    int size_notes = 2;
+
+    float *song = new float[size_notes];
+
+    make_song_array(song, notes, size_notes);
+
+    float decay = 1;
+
+
+    // Enable speaker
+    sd_pin_val = static_cast<enum gpiod_line_value>(1);
+    gpiod_line_request_set_value(gpio_request, gpio_offsets[6], sd_pin_val);
 
     while (true) {
         
         auto t1 = high_resolution_clock::now();
         // Obtain target frequency and amplitude from 
-        current_frequency = f1.f;
-        // current_frequency = 1520.0;
-        current_amplitude = f1.ampl;
         current_wave = f1.wave;
+        if (current_wave = FREEBIRD) {
+            if (start) {
+                k = 0;
+                t = 0;
+                t_last = 0;
+            }
+            current_frequency = song[k];
+        }
+        else {
+            current_frequency = f1.f;
+            decay = 1;
+        }
+        current_amplitude = f1.ampl;
+        visualisation_select = f1.vis_sett;
         // printf("Frequency: %.2f Hz, Amplitude: %.2f, Waveform: %d\n", current_frequency, current_amplitude, current_wave);
         auto t2 = high_resolution_clock::now();
         ms_double = t2 - t1;
@@ -378,25 +472,28 @@ int main(void)
         auto t1 = high_resolution_clock::now();
         // Fill the current block buffer
         for (int i = 0; i < BUFFER_SIZE; i++) {
+            if (current_wave = FREEBIRD) {
+                decay = pow(M_E, -4 * (t-t_last));
+            }
             // Calculate the wave value using the current accumulated phase
             switch (current_wave) {
                 case SINE:
-                    buffer[i] = (short)(sin(phase) * 32767.0 * current_amplitude);
+                    buffer[i] = (short)(sin(phase) * 32767.0 * current_amplitude * decay);
                     break;
                 case BLOCK:
                     if (phase <= M_PI){
-                        buffer[i] = (short) 32767.0 * current_amplitude;
+                        buffer[i] = (short) 32767.0 * current_amplitude * decay;
                     }
                     else{
-                        buffer[i] = (short) -32767.0 * current_amplitude;
+                        buffer[i] = (short) -32767.0 * current_amplitude * decay;
                     }
                     break;
                 case TRIANGLE:
                     if (phase <= M_PI){
-                        buffer[i] = (short)((2*phase*32767.0/M_PI-32767.0) * current_amplitude);
+                        buffer[i] = (short)((2*phase*32767.0/M_PI-32767.0) * current_amplitude * decay);
                     }
                     else{
-                        buffer[i] = (short)((2*(M_PI-phase)*32767.0/M_PI+32767.0) * current_amplitude);
+                        buffer[i] = (short)((2*(M_PI-phase)*32767.0/M_PI+32767.0) * current_amplitude * decay);
                     }
                     break;
                 default:
@@ -410,6 +507,17 @@ int main(void)
             // Prevent the phase float from growing infinitely and losing mathematical precision
             if (phase >= 2.0 * M_PI) {
                 phase -= 2.0 * M_PI;
+            }
+            if (current_wave = FREEBIRD) {
+                t += 1.0 / 48000.0;
+                if (t - t_last > interval_ms[k] * 1000) {
+                    k += 1;
+                }
+                if (k == size_notes) {
+                    k = 0;
+                    t = 0;
+                    t_last = 0;
+                }
             }
         }
         auto t2 = high_resolution_clock::now();
