@@ -86,7 +86,7 @@ settings f1{
     1
 };
 
-double current_frequency = f1.f;
+double led_frequency = f1.f;
 
 int sock = socket(AF_INET, SOCK_DGRAM, 0);
 using std::chrono::high_resolution_clock;
@@ -184,7 +184,7 @@ void drive_leds(void)
     enum gpiod_line_value array[6];
 
     while(true) {
-        f = current_frequency;
+        f = led_frequency;
         value = (uint8_t)round(8 * log2(f / 130.8));
         if (value < 0) {
             value = 0;
@@ -372,9 +372,9 @@ void make_song_array(float *song, std::string *notes, int len_notes)
 
 int main(void)
 {
-    // // Keep speaker in shutdown until setup is done
-    // gpiod_line_value sd_pin_val = static_cast<enum gpiod_line_value>(0);
-    // gpiod_line_request_set_value(gpio_request, gpio_offsets[6], sd_pin_val);
+    // Keep speaker in shutdown until setup is done
+    enum gpiod_line_value sd_pin_val = static_cast<enum gpiod_line_value>(0);
+    gpiod_line_request_set_value(gpio_request, gpio_offsets[6], sd_pin_val);
 
     // UART
     set_interface_attribs();
@@ -421,7 +421,7 @@ int main(void)
     printf("Reading frequency from uart and .\n");
 
     double phase = 0.0; // The critical running phase accumulator
-    current_frequency = f1.f;
+    double current_frequency = f1.f;
     double current_amplitude = f1.ampl;
     FORM current_wave = f1.wave;
     int visualisation_select = f1.vis_sett;
@@ -435,9 +435,13 @@ int main(void)
     double t_last = 0.0;
 
     int k = 0;
-    std::string notes[] = {"C4", "C4", "G4", "G4", "A4", "A4", "G4", "F4", "F4", "E4", "E4", "D4", "D4", "C4", "G4", "G4", "F4", "F4", "E4", "E4", "D4", "G4", "G4", "F4", "F4", "E4", "E4", "D4", "C4", "C4", "G4", "G4", "A4", "A4", "G4", "F4", "F4", "E4", "E4", "D4", "D4", "C4"};
-    double interval_ms[] = {250.0, 250.0, 250.0, 250.0, 250.0, 250.0, 500.0, 250.0, 250.0, 250.0, 250.0, 250.0, 250.0, 500.0, 250.0, 250.0, 250.0, 250.0, 250.0, 250.0, 500.0, 250.0, 250.0, 250.0, 250.0, 250.0, 250.0, 500.0, 250.0, 250.0, 250.0, 250.0, 250.0, 250.0, 500.0, 250.0, 250.0, 250.0, 250.0, 250.0, 250.0, 500.0};
-    int size_notes = 42;
+    // twinkle twinkle
+    // std::string notes[] = {"C4", "C4", "G4", "G4", "A4", "A4", "G4", "F4", "F4", "E4", "E4", "D4", "D4", "C4", "G4", "G4", "F4", "F4", "E4", "E4", "D4", "G4", "G4", "F4", "F4", "E4", "E4", "D4", "C4", "C4", "G4", "G4", "A4", "A4", "G4", "F4", "F4", "E4", "E4", "D4", "D4", "C4"};
+    // double interval_ms[] = {250.0, 250.0, 250.0, 250.0, 250.0, 250.0, 500.0, 250.0, 250.0, 250.0, 250.0, 250.0, 250.0, 500.0, 250.0, 250.0, 250.0, 250.0, 250.0, 250.0, 500.0, 250.0, 250.0, 250.0, 250.0, 250.0, 250.0, 500.0, 250.0, 250.0, 250.0, 250.0, 250.0, 250.0, 500.0, 250.0, 250.0, 250.0, 250.0, 250.0, 250.0, 500.0};
+    // int size_notes = 42;
+    std::string notes[] = {"A4", "B4", "C5"};
+    double interval_ms[] = {400.0, 400.0, 400.0};
+    int size_notes = 3;
 
     float *song = new float[size_notes];
 
@@ -446,9 +450,9 @@ int main(void)
     float decay = 1;
 
 
-    // // Enable speaker
-    // sd_pin_val = static_cast<enum gpiod_line_value>(1);
-    // gpiod_line_request_set_value(gpio_request, gpio_offsets[6], sd_pin_val);
+    // Enable speaker
+    sd_pin_val = static_cast<enum gpiod_line_value>(1);
+    gpiod_line_request_set_value(gpio_request, gpio_offsets[6], sd_pin_val);
 
     while (true) {
         
@@ -462,10 +466,13 @@ int main(void)
                 t_last = 0;
                 start = false;
             }
-            current_frequency = song[k];
+            // current_frequency = song[k];
+            current_frequency = f1.f;
+            led_frequency = song[k];
         }
         else {
             current_frequency = f1.f;
+            led_frequency = current_frequency;
             decay = 1;
             start = true;
         }
@@ -531,6 +538,7 @@ int main(void)
                     k += 1;
                     t_last = t;
                     current_frequency = song[k];
+                    led_frequency = song[k];
                 }
                 if (k == size_notes) {
                     k = 0;
