@@ -27,6 +27,7 @@ app = QtWidgets.QApplication(sys.argv)                                          
 chunk_size = 2048                                           
 time = np.arange(chunk_size) / sample_rate                                      #time array for one chunk, used for plotting the waveform
 chunk = np.zeros(chunk_size)                                                    #audio data chunk
+chunk_read = np.zeros(chunk_size)
 current_chunk = chunk.copy()                                                    #copy of the current chunk, used as a register
 
 hann_window = np.hanning(chunk_size)                                            #hann window for the spectrogram, to reduce spectral leakage
@@ -198,11 +199,12 @@ def update():                                                       #update func
         pass
 
     if data is None:
-        return
-
-
-    view_selector = data[0]    
-    chunk = np.frombuffer(data[1:], dtype=np.int16)
+        QtCore.QTimer.singleShot(5, update)
+        return    
+    chunk_read = np.frombuffer(data, dtype=np.int16)
+    view_selector = chunk_read[0]
+    chunk = chunk_read.copy()
+    chunk[0] = chunk_read[1]  # Remove the first element which is the view selector
 
     if len(chunk) < chunk_size:
         return

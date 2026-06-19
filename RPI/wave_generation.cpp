@@ -86,6 +86,8 @@ settings f1{
     1
 };
 
+double current_frequency = f1.f;
+
 int sock = socket(AF_INET, SOCK_DGRAM, 0);
 using std::chrono::high_resolution_clock;
 
@@ -182,8 +184,8 @@ void drive_leds(void)
     enum gpiod_line_value array[6];
 
     while(true) {
-        f = f1.f;
-        value = (uint8_t) 31 - round(8 * log2(f / 130.8));
+        f = current_frequency;
+        value = (uint8_t)round(8 * log2(f / 130.8));
         if (value < 0) {
             value = 0;
         } else if (value > 31) {
@@ -294,7 +296,7 @@ void parameter_aquisition(void)
                 int setting;
                 int calib;
                 
-                // printf("RX = [%s]\n", line);
+                printf("RX = [%s]\n", line);
                 // printf("%d\n", sscanf(line, "%f,%d,%d", &freq, &ampl, &form) == 3);
 
                 if(sscanf(line, "%f,%f,%d,%d", &freq, &ampl, &form, &setting) == 4)
@@ -364,14 +366,15 @@ void make_song_array(float *song, std::string *notes, int len_notes)
 
         super = (float) n + sharp + 12 * (octave - 3);
         song[i] = f0 * pow(2, super / 12);
+        printf("Note: %s, Frequency: %.2f Hz\n", notes[i].c_str(), song[i]);
     }
 }
 
 int main(void)
 {
-    // Keep speaker in shutdown until setup is done
-    gpiod_line_value sd_pin_val = static_cast<enum gpiod_line_value>(0);
-    gpiod_line_request_set_value(gpio_request, gpio_offsets[6], sd_pin_val);
+    // // Keep speaker in shutdown until setup is done
+    // gpiod_line_value sd_pin_val = static_cast<enum gpiod_line_value>(0);
+    // gpiod_line_request_set_value(gpio_request, gpio_offsets[6], sd_pin_val);
 
     // UART
     set_interface_attribs();
@@ -418,7 +421,7 @@ int main(void)
     printf("Reading frequency from uart and .\n");
 
     double phase = 0.0; // The critical running phase accumulator
-    double current_frequency = f1.f;
+    current_frequency = f1.f;
     double current_amplitude = f1.ampl;
     FORM current_wave = f1.wave;
     int visualisation_select = f1.vis_sett;
@@ -432,9 +435,9 @@ int main(void)
     double t_last = 0.0;
 
     int k = 0;
-    std::string notes[] = {"C#3", "D3"};
-    double interval_ms[] = {3.0, 3.0};
-    int size_notes = 2;
+    std::string notes[] = {"C4", "C4", "G4", "G4", "A4", "A4", "G4", "F4", "F4", "E4", "E4", "D4", "D4", "C4", "G4", "G4", "F4", "F4", "E4", "E4", "D4", "G4", "G4", "F4", "F4", "E4", "E4", "D4", "C4", "C4", "G4", "G4", "A4", "A4", "G4", "F4", "F4", "E4", "E4", "D4", "D4", "C4"};
+    double interval_ms[] = {250.0, 250.0, 250.0, 250.0, 250.0, 250.0, 500.0, 250.0, 250.0, 250.0, 250.0, 250.0, 250.0, 500.0, 250.0, 250.0, 250.0, 250.0, 250.0, 250.0, 500.0, 250.0, 250.0, 250.0, 250.0, 250.0, 250.0, 500.0, 250.0, 250.0, 250.0, 250.0, 250.0, 250.0, 500.0, 250.0, 250.0, 250.0, 250.0, 250.0, 250.0, 500.0};
+    int size_notes = 42;
 
     float *song = new float[size_notes];
 
@@ -443,38 +446,42 @@ int main(void)
     float decay = 1;
 
 
-    // Enable speaker
-    sd_pin_val = static_cast<enum gpiod_line_value>(1);
-    gpiod_line_request_set_value(gpio_request, gpio_offsets[6], sd_pin_val);
+    // // Enable speaker
+    // sd_pin_val = static_cast<enum gpiod_line_value>(1);
+    // gpiod_line_request_set_value(gpio_request, gpio_offsets[6], sd_pin_val);
 
     while (true) {
         
         t1t = high_resolution_clock::now();
         // Obtain target frequency and amplitude from 
         current_wave = f1.wave;
-        if (current_wave = FREEBIRD) {
+        if (current_wave == FREEBIRD) {
             if (start) {
                 k = 0;
                 t = 0;
                 t_last = 0;
+                start = false;
             }
             current_frequency = song[k];
         }
         else {
             current_frequency = f1.f;
             decay = 1;
+            start = true;
         }
         current_amplitude = f1.ampl;
         visualisation_select = f1.vis_sett;
         // printf("Frequency: %.2f Hz, Amplitude: %.2f, Waveform: %d\n", current_frequency, current_amplitude, current_wave);
         t2t = high_resolution_clock::now();
         ms_double = t2t - t1t;
-        printf("Parameter aquisition: %f\n", ms_double.count());
+        // printf("Parameter aquisition: %f\n", ms_double.count());
 
         t1t = high_resolution_clock::now();
+
+        // printf("current frequency: %.2f Hz\n", current_frequency);
         // Fill the current block buffer
         for (int i = 0; i < BUFFER_SIZE; i++) {
-            if (current_wave = FREEBIRD) {
+            if (current_wave == FREEBIRD) {
                 decay = pow(M_E, -4 * (t-t_last));
             }
             // Calculate the wave value using the current accumulated phase
@@ -498,6 +505,14 @@ int main(void)
                         buffer[i] = (short)((2*(M_PI-phase)*32767.0/M_PI+32767.0) * current_amplitude * decay);
                     }
                     break;
+                case FREEBIRD:
+                    if (phase <= M_PI){
+                        buffer[i] = (short)((2*phase*32767.0/M_PI-32767.0) * current_amplitude * decay);
+                    }
+                    else{
+                        buffer[i] = (short)((2*(M_PI-phase)*32767.0/M_PI+32767.0) * current_amplitude * decay);
+                    }
+                    break;
                 default:
                     break;
             }
@@ -510,10 +525,12 @@ int main(void)
             if (phase >= 2.0 * M_PI) {
                 phase -= 2.0 * M_PI;
             }
-            if (current_wave = FREEBIRD) {
+            if (current_wave == FREEBIRD) {
                 t += 1.0 / 48000.0;
-                if (t - t_last > interval_ms[k] * 1000) {
+                if (t - t_last >= interval_ms[k] / 1000.0) {
                     k += 1;
+                    t_last = t;
+                    current_frequency = song[k];
                 }
                 if (k == size_notes) {
                     k = 0;
@@ -524,7 +541,7 @@ int main(void)
         }
         t2t = high_resolution_clock::now();
         ms_double = t2t - t1t;
-        printf("Wave generation: %f\n", ms_double.count());
+        // printf("Wave generation: %f\n", ms_double.count());
 
         t1t = high_resolution_clock::now();
 
@@ -541,7 +558,7 @@ int main(void)
 
         t2t = high_resolution_clock::now();
         ms_double = t2t - t1t;
-        printf("Send audio buffer: %f\n", ms_double.count());
+        // printf("Send audio buffer: %f\n", ms_double.count());
 
         t1t = high_resolution_clock::now();
 
@@ -556,7 +573,7 @@ int main(void)
 
         t2t = high_resolution_clock::now();
         ms_double = t2t - t1t;
-        printf("Send to visualisation: %f\n\n", ms_double.count());
+        // printf("Send to visualisation: %f\n\n", ms_double.count());
     }
     
     snd_pcm_drain(handle);
