@@ -85,7 +85,7 @@ settings f1{
     WAVE_FORM,
     1.0f,
     1,
-    false
+    true
 };
 
 double led_frequency = f1.f;
@@ -289,7 +289,8 @@ void parameter_aquisition(void)
     int form;
     int setting;
     int calib;
-    int cal_numb = 0;
+    int cal_numb = 1;
+    led_frequency = 739.99;
 
     while(true){
         //----- CHECK FOR ANY RX BYTES -----
