@@ -75,6 +75,7 @@ typedef struct settings{
     FORM wave;
     float ampl;
     uint8_t vis_sett;
+    bool calibrate
 }settings;
 
 short buffer[BUFFER_SIZE];
@@ -83,7 +84,8 @@ settings f1{
     440.0f,
     WAVE_FORM,
     1.0f,
-    1
+    1,
+    false
 };
 
 double led_frequency = f1.f;
@@ -185,7 +187,7 @@ void drive_leds(void)
 
     while(true) {
         f = led_frequency;
-        value = (uint8_t)round(8 * log2(f / 130.8));
+        value = (uint8_t)round(32 / 3 * log2(f / 130.8));
         if (value < 0) {
             value = 0;
         } else if (value > 31) {
@@ -282,6 +284,13 @@ bool read_line(int fd, char* buffer, size_t maxlen)
 
 void parameter_aquisition(void)
 {
+    float freq;
+    float ampl;
+    int form;
+    int setting;
+    int calib;
+    int cal_numb = 0;
+
     while(true){
         //----- CHECK FOR ANY RX BYTES -----
         if (uart0_filestream != -1)
@@ -289,13 +298,7 @@ void parameter_aquisition(void)
             char line[128];
 
             if(read_line(uart0_filestream, line, sizeof(line)))
-            {
-                float freq;
-                float ampl;
-                int form;
-                int setting;
-                int calib;
-                
+            {                
                 printf("RX = [%s]\n", line);
                 // printf("%d\n", sscanf(line, "%f,%d,%d", &freq, &ampl, &form) == 3);
 
@@ -306,11 +309,30 @@ void parameter_aquisition(void)
                     f1.wave = static_cast<FORM>(form);
                     f1.ampl = ampl/4096;
                     f1.vis_sett = setting;
+                    f1.calibrate = false;
+                    cal_numb = 0;
                     // printf("Frequency: %.2f Hz, Amplitude: %.2f\n", f1.f, f1.ampl);
                 }
                 else if(sscanf(line, "Calibration %d", &calib) == 1)
                 {
                     // Handle calibration command
+                    f1.calibrate = true;
+                    switch (cal_numb)
+                    {
+                        case 0:
+                            led_frequency = 739.99;
+                            break;
+                        case 1:
+                            led_frequency = 523.25;
+                            break;
+                        case 2:
+                            led_frequency = 261.63;
+                            break;
+                        case 3:
+                            led_frequency = 130.8;
+                            break;
+                    }
+                    cal_numb += 1;
                 }
             }
         }
@@ -439,9 +461,21 @@ int main(void)
     // std::string notes[] = {"C4", "C4", "G4", "G4", "A4", "A4", "G4", "F4", "F4", "E4", "E4", "D4", "D4", "C4", "G4", "G4", "F4", "F4", "E4", "E4", "D4", "G4", "G4", "F4", "F4", "E4", "E4", "D4", "C4", "C4", "G4", "G4", "A4", "A4", "G4", "F4", "F4", "E4", "E4", "D4", "D4", "C4"};
     // double interval_ms[] = {250.0, 250.0, 250.0, 250.0, 250.0, 250.0, 500.0, 250.0, 250.0, 250.0, 250.0, 250.0, 250.0, 500.0, 250.0, 250.0, 250.0, 250.0, 250.0, 250.0, 500.0, 250.0, 250.0, 250.0, 250.0, 250.0, 250.0, 500.0, 250.0, 250.0, 250.0, 250.0, 250.0, 250.0, 500.0, 250.0, 250.0, 250.0, 250.0, 250.0, 250.0, 500.0};
     // int size_notes = 42;
-    std::string notes[] = {"A4", "B4", "C5"};
-    double interval_ms[] = {400.0, 400.0, 400.0};
-    int size_notes = 3;
+    // std::string notes[] = {"A4", "B4", "C5"};
+    // double interval_ms[] = {400.0, 400.0, 400.0};
+    // int size_notes = 3;
+    std::string notes[] = {"F4", "G4", "A#4", "G4", 
+                            "F4", "G4", "A#4", "D#5", "F5", "D#5",
+                            "D5", "C5", 
+                            "A#4", "C5", "D5", "C5",
+                            "A#4", "C5", "D5", "D5", "G4"};
+    double interval[] = {1/16, 1/16, 1/8, 5/8, 
+                            1/16, 1/16, 1/8, 1/16, 1/16, 1/4,
+                            1/8, 3/8,
+                            1/16, 1/16, 1/16, 3/8,
+                            1/16, 1/16, 1/8, 1/8, 1/2};
+    int size_notes = 21;
+    float bpm = 88.0;
 
     float *song = new float[size_notes];
 
@@ -455,7 +489,9 @@ int main(void)
     gpiod_line_request_set_value(gpio_request, gpio_offsets[6], sd_pin_val);
 
     while (true) {
-        
+        while (f1.calibrate){
+
+        }
         t1t = high_resolution_clock::now();
         // Obtain target frequency and amplitude from 
         current_wave = f1.wave;
@@ -534,10 +570,10 @@ int main(void)
             }
             if (current_wave == FREEBIRD) {
                 t += 1.0 / 48000.0;
-                if (t - t_last >= interval_ms[k] / 1000.0) {
+                if (t - t_last >= interval[k] * 60.0 / bpm) {
                     k += 1;
                     t_last = t;
-                    current_frequency = song[k];
+                    // current_frequency = song[k];
                     led_frequency = song[k];
                 }
                 if (k == size_notes) {
