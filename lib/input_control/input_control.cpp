@@ -14,6 +14,8 @@ void init_input_control(){    //init calibration button and autotune_switch
 }
 
 
+
+
 void freq_calibration(int* freq_high, int* freq_low){  //calibrates the low and high frequencies
   bool calibrate_high_freq = false;
   bool calibrate_low_freq = false;
@@ -56,37 +58,52 @@ void freq_calibration2(float freq[], int n){
 
     int frequency;
 
-    float samples[50] = {0};   // Buffer storing last 100 frequency measurements
-    int indx = 0;         // Current index in circular buffer
-    float sum = 0;        // Running sum of all samples
+    int samples1[150] = {0};   // Buffer storing last 100 frequency measurements
+    int indx1 = 0;         // Current index in circular buffer
+    long int sum1 = 0;        // Running sum of all samples
     for (int i = 0; i<n; i++){
 
         while(true){ 
 
             frequency = freq_measurement();      
-            
-                // Remove oldest sample from running sum
-            sum -= samples[indx];
+            Serial.print("freq: ");
+            Serial.print(frequency);
+            // Remove oldest sample from running sum
+            sum1 -= samples1[indx1];
 
             // Store new sample
-            samples[indx] = frequency;
+            samples1[indx1] = frequency;
 
             // Move to next position in circular buffer
-            indx = (indx + 1) % 50;
+            indx1 = (indx1 + 1) % 150;
 
             //Serial.println(indx);
             // Add new sample to running sum
-            sum += frequency;
+            sum1 += frequency;
 
-            //Serial.println(sum);
+            //Serial.print("sum: ");
+            //Serial.println(sum1);
 
             // Compute filtered frequency
-            frequency = sum / 50;
+            frequency = sum1 / 150;
 
-            //Serial2.println(frequency);
-            
-            // measure frequency so it is already enabled (is not necessary)
+            Serial.print("      freq_average: ");
+            Serial.println(frequency);
+
+            int amplitude = pot_meter();
+            int waveform = waveform_select();
+            int visualization = visualization_select();
+
+            String UART_data =
+            String(frequency) + "," +
+            String(amplitude) + "," +
+            String(waveform) + "," + 
+            String(visualization) + "\n";
+
+            Serial2.println(UART_data);
+
             currentState = digitalRead(calibration_button);   
+            
             
             if (lastState == HIGH && currentState == LOW) {
                 freq[i] = frequency;
@@ -142,8 +159,8 @@ int waveform_select(){
 
 
 int visualization_select(){
-    bool vis_select1 = digitalRead(vis_select1);
-    bool vis_select2 = digitalRead(vis_select2);
-    int visualization= vis_select1 + 2 * vis_select2;
+    bool vis_select1 = digitalRead(vis_pin1);
+    bool vis_select2 = digitalRead(vis_pin2);
+    int visualization = vis_select1 + 2 * vis_select2;
     return visualization;
 }

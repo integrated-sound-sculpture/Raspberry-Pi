@@ -14,7 +14,7 @@ double A;
 double B;
 
 // Moving average filter variables
-float samples[100];   // Buffer storing last 100 frequency measurements
+float samples[100] = {0};   // Buffer storing last 100 frequency measurements
 int indx = 0;         // Current index in circular buffer
 float sum = 0;        // Running sum of all samples
 
@@ -35,6 +35,7 @@ void setup()
     // Initialize UART2 communication
     Serial2.begin(115200, SERIAL_8N1, RXD2, TXD2);
 
+
     // Initialize frequency measurement hardware
     init_frequencyMeter();
 
@@ -47,7 +48,7 @@ void setup()
     int n = 4;
 
     // Known distances used for calibration (meters)
-    float d[] = {0.05, 0.10, 0.20, 0.30};
+    float d[] = {0.05, 0.10, 0.20, 0.25};
 
     // Array to store measured frequencies
     float f[n];
@@ -68,11 +69,15 @@ void setup()
     Serial.println("\nSetup done");
     Serial.println("STARTING WITH MEASUREMENTS");
 
+
+    
     delay(1500);
 }
 
 void loop()
 {
+
+
     // Measure frequency from sensor
     in_freq = freq_measurement();
     Serial.print(in_freq);
@@ -104,6 +109,13 @@ void loop()
     //--------------------------------------------------
 
     d = convert_hand_lin(A, B, in_freq);
+    //Serial.print("      distance:  ");
+    //Serial.println(d);
+
+    if (d > 0.30){
+        d = 0.30;
+    }
+    
 
     //--------------------------------------------------
     // Convert distance to audible frequency
@@ -116,8 +128,7 @@ void loop()
      * 30     = maximum distance (cm)
      * 5      = minimum distance (cm)
      */
-    freq = convert_freq_log(4, 130.8, d, 0.30, 0.05);
-
+    freq = convert_freq_log(3, 1046.5, d, 0.30, 0.05);
     //--------------------------------------------------
     // Read volume control potentiometer
     //--------------------------------------------------
@@ -163,13 +174,50 @@ void loop()
     String UART_data =
         String(freq) + "," +
         String(amplitude) + "," +
-        String(waveform) + "\n";
+        String(waveform) + "," + 
+        String(visualization) + "\n";
 
     // Send packet to connected device
     Serial2.println(UART_data);
 
     Serial.print("                ");
     Serial.println(UART_data);
-    delay(2);
+    delay(1);
+
+
+    if (digitalRead(5) == HIGH){
+    
+        Serial.println("           ");
+        Serial.println("           ");
+        Serial.println("           ");
+        Serial.println("     Calibration      ");
+        Serial.println("           ");
+        Serial.println("           ");
+
+        Serial2.println("Calibrate 1");
+        Serial2.println(freq);
+
+        delay(100);
+        // Number of calibration points
+        int n = 4;
+
+        // Known distances used for calibration (meters)
+        float d[] = {0.05, 0.10, 0.20, 0.30};
+
+        // Array to store measured frequencies
+        float f[n];
+
+
+        freq_calibration2(f, n);
+
+
+        //float f[] = {520000,560000,600000,610000};
+
+
+        // Fit the frequency-distance model:
+        fitModel(d, f, n, &A, &B);
+
+        delay(100);
+    }
 
 }

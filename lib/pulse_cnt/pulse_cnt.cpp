@@ -127,12 +127,12 @@ float convert_freq_lin(int in_min, int in_max, int out_min, int out_max, int fre
 
 //---------------------------------------------------------------------------------
 
-float convert_freq_log(int num_octaves, float min_freq, float freq, float in_max, float in_min){    //converting teh frequency using a logaritmic scale
+float convert_freq_log(int num_octaves, float max_freq, float freq, float in_max, float in_min){    //converting teh frequency using a logaritmic scale
 
   float x = (float)(freq-in_min)/(float)(in_max-in_min); //convert input freq to range between 0 and 1
   
   //Serial.println(x);
-  float y = min_freq * pow(2,x*num_octaves);  //convert to logaritmic range 
+  float y = max_freq * pow(2,-x*num_octaves);  //convert to logaritmic range 
   return y;
 }
 

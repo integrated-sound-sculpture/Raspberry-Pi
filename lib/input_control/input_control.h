@@ -7,8 +7,8 @@ const int wave_select_pin = 2;
 const int autotune_switch = 12;
 const int waveform_pin1 = 22;
 const int waveform_pin2 = 23;
-const int vis_select1 = 18;
-const int vis_select2 = 19;
+const int vis_pin1 = 19;
+const int vis_pin2 = 18;
 
 void init_input_control();
 void freq_calibration(int* freq_high, int* freq_low);
