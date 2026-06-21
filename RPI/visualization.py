@@ -46,6 +46,7 @@ selector.addItems(['All', 'Waveform plot', 'FFT', 'Frequency plot','Piano'])
 layout.addWidget(selector)
 last_selector = 0
 
+current_view = 0
 p1_ymax = 0.1                                                                   #initial y-axis max's, will be adjucted in update()
 p2_ymax = 0.1 
 p3_fft_ymax = 0.1  
@@ -157,6 +158,8 @@ p4.setXRange(0, white_x)
 layout.addWidget(p4)
 
 def on_select(index):                                               #function to switch between plots
+    global curent_view
+    current_view = index
     if index == 0:
         p1.show()
         p2.hide()
@@ -213,24 +216,28 @@ def update():                                                       #update func
 
     windowed_chunk = chunk * hann_window
     if view_selector != last_selector:
-        selector.setCurrentIndex({0:1,1:3,2:4}.get(view_selector, 0))  # Update the selector based on the received data
+        selector.setCurrentIndex({0:1,1:3,2:4,4:0}.get(view_selector, 0))  # Update the selector based on the received data
         last_selector = view_selector
 
 
     fft_values = np.abs(np.array(fft(windowed_chunk)))[:chunk_size//2]       #perform fft, put it in an array and take the absolute value, for only positive frequencies
     fft_freqs = fftfreq(chunk_size, 1/sample_rate)[:chunk_size//2]  #get corresponding frequencies for the fft values
-    fft_values_log = np.interp(log_freqs, fft_freqs, fft_values)    #interpolate the fft values to match the log frequency bins
+    if current_view in {0, 3}:
 
-    f,t,Sxx = spectrogram(chunk, fs=sample_rate, nperseg =512, noverlap=256, window ='hann') #make spectrogram
-    magnitude_db_spec = 10 * np.log10(Sxx + 1e-10)                  #convert magnitude to logaritmic, avoid log(0)
-    col = magnitude_db_spec.mean(axis=1)                            #average over time to get a single column for the waterfall plot    
-    col_log = np.interp(log_freqs, f, col)                          #interpolate to match the log frequency bins
+        fft_values_log = np.interp(log_freqs, fft_freqs, fft_values)    #interpolate the fft values to match the log frequency bins
+
+        f,t,Sxx = spectrogram(chunk, fs=sample_rate, nperseg =512, noverlap=256, window ='hann') #make spectrogram
+        magnitude_db_spec = 10 * np.log10(Sxx + 1e-10)                  #convert magnitude to logaritmic, avoid log(0)
+        col = magnitude_db_spec.mean(axis=1)                            #average over time to get a single column for the waterfall plot    
+        col_log = np.interp(log_freqs, f, col)                          #interpolate to match the log frequency bins
+        graph3_fft.setData(np.arange(len(log_freqs)), fft_values_log)
+        waterfall_buffer = np.roll(waterfall_buffer, -1, axis=1)        #shift buffer to the left
+        waterfall_buffer[:, -1] = col_log                               #add new column to the right of the buffer  
+        graph3.setImage(waterfall_buffer, autoLevels=True)
+
+
     graph1.setData(time.flatten(), chunk.astype(float).flatten())   #update waveform plot
     graph2.setData(fft_freqs.flatten(), fft_values.flatten())       #update FFT plot
-    graph3_fft.setData(np.arange(len(log_freqs)), fft_values_log)
-    waterfall_buffer = np.roll(waterfall_buffer, -1, axis=1)        #shift buffer to the left
-    waterfall_buffer[:, -1] = col_log                               #add new column to the right of the buffer  
-    graph3.setImage(waterfall_buffer, autoLevels=True)
 
     if np.max(np.abs(chunk)) > p1_ymax:                             #dynamically adjust y-axis if the signal exceeds 90% of the current max
         p1_ymax = p1_ymax * 1.5
@@ -259,24 +266,24 @@ def update():                                                       #update func
             peak_freq = valid_ffreqs[peak_idx] + correction * bin_width
         else:
             peak_freq = valid_ffreqs[peak_idx]
+        if current_view == 4:
+            midi_note = 69 + 12 * np.log2(max(peak_freq / 440, 1e-10))  #convert frequency to MIDI note number
 
-        midi_note = 69 + 12 * np.log2(max(peak_freq / 440, 1e-10))  #convert frequency to MIDI note number
+            center = round(midi_note)                                   #get the nearest MIDI note number to the smoothed value
 
-        center = round(midi_note)                                   #get the nearest MIDI note number to the smoothed value
+            for rect in white_key_items.values():                  #reset all colors
+                rect.setBrush(pg.mkBrush('w'))
+            for rect in black_key_items.values():
+                rect.setBrush(pg.mkBrush('k'))
 
-        for midi, rect in white_key_items.items():                  #reset all colors
-            rect.setBrush(pg.mkBrush('w'))
-        for midi, rect in black_key_items.items():
-            rect.setBrush(pg.mkBrush('k'))
-
-        if peak_magnitude > amplitude_threshold:                    #only show the detected note if it exceeds the amplitude threshold
-            if center in white_key_items:                           #highlight the note by making the key red
-                white_key_items[center].setBrush(pg.mkBrush('r'))
-            elif center in black_key_items:
-                black_key_items[center].setBrush(pg.mkBrush('r'))
-            note_name = note_labels[center % 12]                    #get the name of the detected note
-            octave = center // 12 - 1
-            p4.setTitle(f'Detected Note: {note_name}{octave}')      #set the title to show the detected note and its frequency and amplitude
+            if peak_magnitude > amplitude_threshold:                    #only show the detected note if it exceeds the amplitude threshold
+                if center in white_key_items:                           #highlight the note by making the key red
+                    white_key_items[center].setBrush(pg.mkBrush('r'))
+                elif center in black_key_items:
+                    black_key_items[center].setBrush(pg.mkBrush('r'))
+                note_name = note_labels[center % 12]                    #get the name of the detected note
+                octave = center // 12 - 1
+                p4.setTitle(f'Detected Note: {note_name}{octave}')      #set the title to show the detected note and its frequency and amplitude
     end = tm.perf_counter()
     processing_time = (end-start)*1000
     p1.setTitle(f'Delay: {processing_time:.2f}ms')
