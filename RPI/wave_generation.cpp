@@ -75,7 +75,7 @@ typedef struct settings{
     FORM wave;
     float ampl;
     uint8_t vis_sett;
-    bool calibrate
+    bool calibrate;
 }settings;
 
 short buffer[BUFFER_SIZE];
@@ -396,8 +396,8 @@ void make_song_array(float *song, std::string *notes, int len_notes)
 int main(void)
 {
     // Keep speaker in shutdown until setup is done
-    enum gpiod_line_value sd_pin_val = static_cast<enum gpiod_line_value>(0);
-    gpiod_line_request_set_value(gpio_request, gpio_offsets[6], sd_pin_val);
+    // enum gpiod_line_value sd_pin_val = static_cast<enum gpiod_line_value>(0);
+    // gpiod_line_request_set_value(gpio_request, gpio_offsets[6], sd_pin_val);
 
     // UART
     set_interface_attribs();
@@ -486,8 +486,8 @@ int main(void)
 
 
     // Enable speaker
-    sd_pin_val = static_cast<enum gpiod_line_value>(1);
-    gpiod_line_request_set_value(gpio_request, gpio_offsets[6], sd_pin_val);
+    // sd_pin_val = static_cast<enum gpiod_line_value>(1);
+    // gpiod_line_request_set_value(gpio_request, gpio_offsets[6], sd_pin_val);
 
     while (true) {
         while (f1.calibrate){
@@ -526,7 +526,7 @@ int main(void)
         // Fill the current block buffer
         for (int i = 0; i < BUFFER_SIZE; i++) {
             if (current_wave == FREEBIRD) {
-                decay = pow(M_E, -4 * (t-t_last));
+                // decay = pow(M_E, -4 * (t-t_last));
             }
             // Calculate the wave value using the current accumulated phase
             switch (current_wave) {
