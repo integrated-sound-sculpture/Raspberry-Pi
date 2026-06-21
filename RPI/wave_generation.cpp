@@ -184,9 +184,12 @@ void drive_leds(void)
     int i;
     float f;
     enum gpiod_line_value array[6];
+    bool calibr = false;
+    int k = 0;
 
     while(true) {
         f = led_frequency;
+        calibr = f1.calibrate;
         value = (uint8_t)round(32 / 3 * log2(f / 130.8));
         if (value < 0) {
             value = 0;
@@ -204,8 +207,24 @@ void drive_leds(void)
         gpiod_line_request_set_value(gpio_request, gpio_offsets[1], array[1]);  // S1
         gpiod_line_request_set_value(gpio_request, gpio_offsets[2], array[2]);  // S2
         gpiod_line_request_set_value(gpio_request, gpio_offsets[3], array[3]);  // S3
-        gpiod_line_request_set_value(gpio_request, gpio_offsets[4], array[4]);  // E0
-        gpiod_line_request_set_value(gpio_request, gpio_offsets[5], array[5]);  // E1 (inverted)
+
+        if (calibr){
+            if (k < 50) {
+                gpiod_line_request_set_value(gpio_request, gpio_offsets[4], array[4]);  // E0
+                gpiod_line_request_set_value(gpio_request, gpio_offsets[5], array[5]);  // E1
+            } else {
+                gpiod_line_request_set_value(gpio_request, gpio_offsets[4], static_cast<enum gpiod_line_value>(1 & 1));  // E0
+                gpiod_line_request_set_value(gpio_request, gpio_offsets[5], static_cast<enum gpiod_line_value>(1 & 1));  // E1
+            }
+            k += 1;
+            if (k >= 100) {
+                k = 0;
+            }
+        } else {
+            k = 0;
+            gpiod_line_request_set_value(gpio_request, gpio_offsets[4], array[4]);  // E0
+            gpiod_line_request_set_value(gpio_request, gpio_offsets[5], array[5]);  // E1 (inverted)
+        }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
@@ -300,7 +319,7 @@ void parameter_aquisition(void)
 
             if(read_line(uart0_filestream, line, sizeof(line)))
             {                
-                printf("RX = [%s]\n", line);
+                // printf("RX = [%s]\n", line);
                 // printf("%d\n", sscanf(line, "%f,%d,%d", &freq, &ampl, &form) == 3);
 
                 if(sscanf(line, "%f,%f,%d,%d", &freq, &ampl, &form, &setting) == 4)
@@ -490,9 +509,11 @@ int main(void)
     // gpiod_line_request_set_value(gpio_request, gpio_offsets[6], sd_pin_val);
 
     while (true) {
+        printf("Check calib\n");
         while (f1.calibrate){
 
         }
+        printf("Sound generation begin\n");
         t1t = high_resolution_clock::now();
         // Obtain target frequency and amplitude from 
         current_wave = f1.wave;
@@ -515,6 +536,7 @@ int main(void)
         }
         current_amplitude = f1.ampl;
         visualisation_select = f1.vis_sett;
+        printf("Parameters updated\n");
         // printf("Frequency: %.2f Hz, Amplitude: %.2f, Waveform: %d\n", current_frequency, current_amplitude, current_wave);
         t2t = high_resolution_clock::now();
         ms_double = t2t - t1t;
@@ -560,7 +582,6 @@ int main(void)
                 default:
                     break;
             }
-
             // Advance the phase smoothly based ONLY on the immediate target frequency
             double phase_step = (2.0 * M_PI * current_frequency) / SAMPLE_RATE;
             phase += phase_step;
@@ -584,6 +605,9 @@ int main(void)
                 }
             }
         }
+
+        printf("buffer generated\n");
+
         t2t = high_resolution_clock::now();
         ms_double = t2t - t1t;
         // printf("Wave generation: %f\n", ms_double.count());
@@ -600,6 +624,8 @@ int main(void)
             cleanup_gpio();
             break;
         }
+        printf("buffer sent to audio\n");
+        printf("random buffer sample: %d\n", buffer[100]);
 
         t2t = high_resolution_clock::now();
         ms_double = t2t - t1t;
@@ -615,6 +641,7 @@ int main(void)
                 0,
                 (sockaddr*)&addr,
                 sizeof(addr));
+        printf("buffer sent to visualisation\n");
 
         t2t = high_resolution_clock::now();
         ms_double = t2t - t1t;
