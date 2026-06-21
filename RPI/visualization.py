@@ -158,7 +158,7 @@ p4.setXRange(0, white_x)
 layout.addWidget(p4)
 
 def on_select(index):                                               #function to switch between plots
-    global curent_view
+    global current_view
     current_view = index
     if index == 0:
         p1.show()
@@ -286,7 +286,7 @@ def update():                                                       #update func
                 p4.setTitle(f'Detected Note: {note_name}{octave}')      #set the title to show the detected note and its frequency and amplitude
     end = tm.perf_counter()
     processing_time = (end-start)*1000
-    p1.setTitle(f'Delay: {processing_time:.2f}ms')
+    # p1.setTitle(f'Delay: {processing_time:.2f}ms')
     QtCore.QTimer.singleShot(5, update)
 
         

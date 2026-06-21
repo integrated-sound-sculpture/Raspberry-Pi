@@ -333,14 +333,14 @@ void parameter_aquisition(void)
                     cal_numb = 0;
                     // printf("Frequency: %.2f Hz, Amplitude: %.2f\n", f1.f, f1.ampl);
                 }
-                else if(sscanf(line, "Calibration %d", &calib) == 1)
+                else if(sscanf(line, "Calibrate %d", &calib) == 1)
                 {
                     // Handle calibration command
                     f1.calibrate = true;
                     switch (cal_numb)
                     {
                         case 0:
-                            led_frequency = 739.99;
+                            led_frequency = 1200.0;
                             break;
                         case 1:
                             led_frequency = 523.25;
@@ -489,11 +489,11 @@ int main(void)
                             "D5", "C5", 
                             "A#4", "C5", "D5", "C5",
                             "A#4", "C5", "D5", "D5", "G4"};
-    double interval[] = {1/16, 1/16, 1/8, 5/8, 
-                            1/16, 1/16, 1/8, 1/16, 1/16, 1/4,
-                            1/8, 3/8,
-                            1/16, 1/16, 1/16, 3/8,
-                            1/16, 1/16, 1/8, 1/8, 1/2};
+    double interval[] = {0.0625, 0.0625, 0.125, 0.625, 
+                            0.0625, 0.0625, 0.125, 0.0625, 0.0625, 0.25,
+                            0.125, 0.375,
+                            0.0625, 0.0625, 0.0625, 0.375,
+                            0.0625, 0.0625, 0.125, 0.125, 0.5};
     int size_notes = 21;
     float bpm = 88.0;
 
@@ -524,8 +524,8 @@ int main(void)
                 t_last = 0;
                 start = false;
             }
-            // current_frequency = song[k];
-            current_frequency = f1.f;
+            current_frequency = song[k];
+            // current_frequency = f1.f;
             led_frequency = song[k];
         }
         else {
@@ -592,7 +592,7 @@ int main(void)
             }
             if (current_wave == FREEBIRD) {
                 t += 1.0 / 48000.0;
-                if (t - t_last >= interval[k] * 60.0 / bpm) {
+                if (t - t_last >= interval[k] * 4 * 60.0 / bpm) {
                     k += 1;
                     t_last = t;
                     // current_frequency = song[k];
