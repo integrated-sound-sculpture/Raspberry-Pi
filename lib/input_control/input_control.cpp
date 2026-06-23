@@ -94,13 +94,13 @@ void freq_calibration2(float freq[], int n){
             int waveform = waveform_select();
             int visualization = visualization_select();
 
-            String UART_data =
-            String(frequency) + "," +
-            String(amplitude) + "," +
-            String(waveform) + "," + 
-            String(visualization) + "\n";
+            //String UART_data =
+            //String(frequency) + "," +
+            //String(amplitude) + "," +
+            //String(waveform) + "," + 
+            //String(visualization) + "\n";
 
-            Serial2.println(UART_data);
+            //Serial2.println(UART_data);
 
             currentState = digitalRead(calibration_button);   
             

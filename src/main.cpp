@@ -129,6 +129,11 @@ void loop()
      * 5      = minimum distance (cm)
      */
     freq = convert_freq_log(3, 1046.5, d, 0.30, 0.05);
+
+    if (freq > 1500){
+        freq = 0.30;
+    }
+    
     //--------------------------------------------------
     // Read volume control potentiometer
     //--------------------------------------------------
@@ -175,7 +180,8 @@ void loop()
         String(freq) + "," +
         String(amplitude) + "," +
         String(waveform) + "," + 
-        String(visualization) + "\n";
+        String(visualization) + "," +
+        String(auto_tune) + "\n";
 
     // Send packet to connected device
     Serial2.println(UART_data);
@@ -183,8 +189,9 @@ void loop()
     Serial.print("                ");
     Serial.println(UART_data);
     delay(1);
+ 
 
-
+    
     if (digitalRead(5) == HIGH){
     
         Serial.println("           ");
@@ -197,7 +204,7 @@ void loop()
         Serial2.println("Calibrate 1");
         Serial2.println(freq);
 
-        delay(100);
+        delay(1000);
         // Number of calibration points
         int n = 4;
 
